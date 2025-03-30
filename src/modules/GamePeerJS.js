@@ -86,7 +86,7 @@ class GamePeerJS {
     }
     
     if (this.options.useMouseController) {
-      this.mouseController = new MouseController({
+      this._mouseController = new MouseController({
         connectionManager: this.connectionManager
       });
     }
@@ -238,7 +238,14 @@ class GamePeerJS {
     this.connectionManager.destroy();
     if (this.voiceChat) this.voiceChat.destroy();
     if (this.keyboardController) this.keyboardController.destroy();
-    if (this.mouseController) this.mouseController.destroy();
+    if (this._mouseController) this._mouseController.destroy();
+  }
+
+  mouseController() {
+    if (!this.options.useMouseController) {
+      throw new Error('Mouse controller not enabled - set useMouseController: true in options');
+    }
+    return this._mouseController;
   }
   
   // Private methods

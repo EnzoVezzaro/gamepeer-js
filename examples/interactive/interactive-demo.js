@@ -4,15 +4,14 @@ const GamePeerJS = window.GamePeerJS;
 // Initialize game when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
   try {
-    // Initialize the SDK
+    // Initialize the SDK with mouse controller
     const game = new GamePeerJS({
       debug: true,
       useKeyboardController: true,
+      useMouseController: true,
       localPlayerId: `player-${Math.random().toString(36).substr(2, 8)}`
     });
 
-    console.log('passing player id: ', `player-${Math.random().toString(36).substr(2, 8)}`);
-    
     // Get DOM elements
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -27,6 +26,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!hostBtn || !joinBtn || !roomInput || !roomInfo) {
       throw new Error('Missing required UI elements');
     }
+
+    // Setup mouse controller
+    console.log('[muouse controller]: ', game);
+    const mouse = game.mouseController({
+      connectionManager: game.connectionManager
+    });
+    mouse.setup(canvas);
 
     // Handle keyboard input
     const moveSpeed = 5;
@@ -70,10 +76,33 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     };
 
+    // Handle mouse movement through controller
+    mouse.on('mousemove', ({x, y}) => {
+      game.movePlayer(x, y);
+    });
+
+    // Handle shooting
+    mouse.on('click', ({x, y}) => {
+      const bulletId = 'bullet_' + Date.now();
+      game.createGameObject(bulletId, {
+        type: 'bullet',
+        x: x,
+        y: y,
+        radius: 5,
+        color: '#000000',
+        ownerId: game.localPlayerId
+      });
+
+      game.broadcastEvent('bullet', {
+        bulletId: bulletId,
+        x: x,
+        y: y,
+        ownerId: game.localPlayerId
+      });
+    });
+
     // Handle bullet collisions
     game.on('bullet', (bulletData) => {
-      console.log('Bullet created:', bulletData);
-      
       // Check collisions with all players
       Object.values(game.players).forEach(player => {
         if (!player.id) return;
@@ -82,11 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const dy = bulletData.y - player.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
-        console.log(`Distance to player ${player.id}:`, distance, player.id, bulletData);
-        
         if (distance < 25 && player.id !== bulletData.ownerId) {
-          console.log(`Player ${player.id} hit by bullet!`);
-          
           // Create hit notification
           game.createGameObject('hitNotification', {
             targetPlayerId: player.id,
@@ -94,7 +119,6 @@ document.addEventListener('DOMContentLoaded', () => {
             message: 'You got hit!'
           });
           
-          // Show alert if local player was hit
           if (player.id === game.localPlayerId) {
             alert('You got hit by a bullet!');
           }
@@ -104,7 +128,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Handle state updates
     game.on('stateUpdate', (data) => {
-      // console.log('[stateUpdate] receiving updates: ', data);
       if (data.objectId) {
         if (data.objectId.startsWith('player_')) {
           game.players[data.objectId] = game.players[data.objectId] || {};
@@ -151,71 +174,8 @@ document.addEventListener('DOMContentLoaded', () => {
       
       requestAnimationFrame(gameLoop);
     }
-
-    // Listen for bullet events from peers
-    game.on('bullet', (bulletData) => {
-      console.log('[PEER] Received bullet event:', bulletData);
-      
-      if (!bulletData.bulletId || !bulletData.x || !bulletData.y) {
-        console.warn('Invalid bullet data received');
-        return;
-      }
-      
-      // Create/sync bullet object
-      if (!game.gameObjects[bulletData.bulletId]) {
-        game.createGameObject(bulletData.bulletId, {
-          type: 'bullet', 
-          x: bulletData.x,
-          y: bulletData.y,
-          radius: 5,
-          color: '#000000',
-          ownerId: bulletData.ownerId
-        });
-      } else {
-        game.syncGameObject(bulletData.bulletId, {
-          x: bulletData.x,
-          y: bulletData.y
-        });
-      }
-    });
     
     gameLoop();
-
-    // Mouse movement handler
-    canvas.addEventListener('mousemove', (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      game.movePlayer(x, y);
-    });
-
-    // Click to shoot
-    canvas.addEventListener('click', (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      
-      // Create bullet with unique ID
-      const bulletId = 'bullet_' + Date.now();
-      game.createGameObject(bulletId, {
-        type: 'bullet',
-        x: x,
-        y: y,
-        radius: 5,
-        color: '#000000',
-        ownerId: game.localPlayerId
-      });
-
-      console.log('Bullet created by:', game.localPlayerId, 'at:', {x, y});
-      
-      // Broadcast bullet event to all peers
-      game.broadcastEvent('bullet', {
-        bulletId: bulletId,
-        x: x,
-        y: y,
-        ownerId: game.localPlayerId
-      });
-    });
     
   } catch (err) {
     console.error('Game initialization failed:', err);
