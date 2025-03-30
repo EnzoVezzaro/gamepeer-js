@@ -47,7 +47,7 @@ export default class KeyboardController {
   _setupEventListeners() {
     try {
       // Use capturing phase to reliably intercept arrow keys
-      console.log('Use capturing phase to reliably intercept arrow keys');
+      console.log('[_setupEventListeners]');
       window.addEventListener('keydown', this._handleKeyDown.bind(this), true);
       window.addEventListener('keyup', this._handleKeyUp.bind(this));
     } catch (err) {

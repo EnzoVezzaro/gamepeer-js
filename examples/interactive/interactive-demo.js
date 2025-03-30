@@ -12,6 +12,9 @@ document.addEventListener('DOMContentLoaded', () => {
       localPlayerId: `player-${Math.random().toString(36).substr(2, 8)}`
     });
 
+    const keybowr = game.keyboardController
+    console.log('checking keybow: ', keybowr);
+    
 
     // Get DOM elements
     const canvas = document.getElementById('gameCanvas');

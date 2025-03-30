@@ -1,11 +1,9 @@
 // GamePeerJS.js - Browser-to-browser P2P game SDK using PeerJS
 
-import MatchmakingService from '../services/MatchmakingService.js';
-import VoiceChatManager from '../services/VoiceChatManager.js';
-import KeyboardController from '../services/KeyboardController.js';
-import MouseController from '../services/MouseController.js';
+import ServicesInitializer from './ServicesInitializer.js';
 import GameState from './GameState.js';
 import PeerConnectionManager from './PeerConnectionManager.js';
+import PlayerInitializer from './PlayerInitializer.js';
 
 // Load PeerJS dynamically from CDN
 function loadPeerJS() {
@@ -49,6 +47,7 @@ class GamePeerJS {
     // Initialize core systems first
     this.connectionManager = new PeerConnectionManager(this.options.peerOptions);
     this.gameState = new GameState();
+    this.playerInitializer = new PlayerInitializer(this);
     this.isHost = false;
     this.clientId = null;
     this.lastUpdateTime = 0;
@@ -70,36 +69,27 @@ class GamePeerJS {
     };
     
     this._setupLogger();
-    
-    // Initialize services only after core systems are ready
-    this._initServices();
-  }
-
-  _initServices() {
-    // Only initialize services after room is created (in hostGame/joinGame)
-    this._keyboardController = null;
-    this._mouseController = null;
-    this._matchmaking = null;
-    this._voiceChat = null;
   }
 
   _initServiceInstances() {
     // Initialize keyboard controller if requested
-    if (this.options.useKeyboardController && !this._keyboardController) {
-      this._keyboardController = new KeyboardController({
-        connectionManager: this.connectionManager,
-        playerId: this.localPlayerId,
-        ...this.options.keyboardOptions
-      });
-    }
+    this.services = new ServicesInitializer(this);
+  }
 
-    // Initialize other services similarly...
-    if (this.options.useMouseController && !this._mouseController) {
-      this._mouseController = new MouseController({
-        connectionManager: this.connectionManager,
-        ...this.options.mouseOptions
-      });
-    }
+  getKeyboardController() {
+    return this.services?.getKeyboardController();
+  }
+
+  getMouseController() {
+    return this.services?.getMouseController();
+  }
+
+  getMatchmakingService() {
+    return this.services?.getMatchmakingService();
+  }
+
+  getVoiceChatManager() {
+    return this.services?.getVoiceChatManager();
   }
   
   // Initialize as a host (server)
@@ -113,30 +103,20 @@ class GamePeerJS {
       this.localPlayerId = `player_${this.clientId}`;
       this.log(`Initialized as host with ID: ${this.clientId}`);
       
-      // Register with matchmaking if enabled
-      if (this.matchmaking) {
-        try {
-          await this.matchmaking.init(this.clientId);
-          await this.matchmaking.registerRoom(this.clientId, roomMetadata);
-        } catch (err) {
-          this.log('Warning: Failed to register with matchmaking service', err);
-        }
-      }
-      
-      // Initialize voice chat if enabled
-      if (this.voiceChat) {
-        try {
-          await this.voiceChat.init(this.connectionManager.peer);
-        } catch (err) {
-          this.log('Warning: Failed to initialize voice chat', err);
-        }
-      }
-      
       this.connectionManager.onConnection((peerId) => {
         this._handleNewConnection(peerId);
       });
       
-      this._createLocalPlayer();
+      await this.playerInitializer.initialize();
+      const playerData = await this.playerInitializer.createLocalPlayer();
+      this.players[this.localPlayerId] = playerData;
+      this.syncGameObject(this.localPlayerId, {
+        ...playerData,
+        syncAll: true
+      });
+      
+      // Initialize services after player is created
+      this._initServiceInstances();
       this._startGameLoop();
       
       return this.clientId;
@@ -179,7 +159,16 @@ class GamePeerJS {
         });
       }
       
-      this._createLocalPlayer();
+      await this.playerInitializer.initialize();
+      const playerData = await this.playerInitializer.createLocalPlayer();
+      this.players[this.localPlayerId] = playerData;
+      this.syncGameObject(this.localPlayerId, {
+        ...playerData,
+        syncAll: true
+      });
+      
+      // Initialize services after player is created
+      this._initServiceInstances();
       this._requestFullState();
       
       return hostId;
@@ -246,87 +235,7 @@ class GamePeerJS {
   destroy() {
     if (this.tickInterval) clearInterval(this.tickInterval);
     this.connectionManager.destroy();
-    if (this.voiceChat) this.voiceChat.destroy();
-    if (this._keyboardController) this._keyboardController.destroy();
-    if (this._mouseController) this._mouseController.destroy();
-  }
-
-  mouseController() {
-    if (!this.options.useMouseController) {
-      throw new Error('Mouse controller not enabled - set useMouseController: true in options');
-    }
-    if (!this._mouseController) {
-      this._mouseController = new MouseController({
-        connectionManager: this.connectionManager,
-        ...this.options.mouseOptions
-      });
-    }
-    return this._mouseController;
-  }
-
-  keyboardController() {
-    if (!this.options.useKeyboardController) {
-      throw new Error('Keyboard controller not enabled - set useKeyboardController: true in options');
-    }
-    if (!this.clientId) {
-      throw new Error('KeyboardController can only be accessed after room creation (call hostGame() or joinGame() first)');
-    }
-    if (!this._keyboardController) {
-      this._keyboardController = new KeyboardController({
-        connectionManager: this.connectionManager,
-        playerId: this.localPlayerId,
-        ...this.options.keyboardOptions
-      });
-    }
-    return this._keyboardController;
-  }
-  
-  // Private methods
-  _createLocalPlayer() {
-    const playerData = {
-      name: `Player ${this.clientId.substr(0, 5)}`,
-      x: Math.floor(Math.random() * 500),
-      y: Math.floor(Math.random() * 500),
-      color: this._getRandomColor(),
-      id: this.localPlayerId
-    };
-    
-    this.players[this.localPlayerId] = playerData;
-    // Force full sync of all player properties
-    this.syncGameObject(this.localPlayerId, {
-      ...playerData,
-      syncAll: true
-    });
-  }
-  
-  _getRandomColor() {
-    const colors = ['#FF5733', '#33FF57', '#3357FF', '#F3FF33', '#FF33F3'];
-    return colors[Math.floor(Math.random() * colors.length)];
-  }
-
-  get matchmaking() {
-    if (!this.options.useMatchmaking) return null;
-    if (!this._matchmaking) {
-      this._matchmaking = new MatchmakingService(this.options.matchmakingOptions);
-      this._matchmaking.on('roomsUpdated', (rooms) => {
-        this._triggerEvent('roomsUpdated', rooms);
-      });
-    }
-    return this._matchmaking;
-  }
-
-  get voiceChat() {
-    if (!this.options.useVoiceChat) return null;
-    if (!this._voiceChat) {
-      this._voiceChat = new VoiceChatManager(this.options.voiceChatOptions);
-      this._voiceChat.on('connected', (peerId) => {
-        this._triggerEvent('voiceChatConnected', { peerId });
-      });
-      this._voiceChat.on('disconnected', (peerId) => {
-        this._triggerEvent('voiceChatDisconnected', { peerId });
-      });
-    }
-    return this._voiceChat;
+    this.services.destroy();
   }
 
   _generateRoomId() {
@@ -335,17 +244,6 @@ class GamePeerJS {
 
   _handleNewConnection(peerId) {
     this._setupDataHandling();
-    
-    // Handle mouse events from peers
-    this.connectionManager.on('data', ({data, conn}) => {
-      if (data?.type === 'mouseEvent') {
-        this._triggerEvent('mouse', {
-          event: data.event,
-          data: data.data,
-          peerId: conn?.peer
-        });
-      }
-    });
     this._triggerEvent('connection', { peerId });
   }
 
@@ -405,7 +303,7 @@ class GamePeerJS {
               name: `Player ${data.objectId.substr(7, 5)}`,
               x: 0,
               y: 0,
-              color: this._getRandomColor(),
+              color: this.playerInitializer._getRandomColor(),
               ...data.data
             };
           } else {

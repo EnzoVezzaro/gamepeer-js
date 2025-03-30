@@ -35,9 +35,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Host or join game
   document.getElementById('hostBtn').onclick = async () => {
     const roomId = await game.hostGame();
-    console.log('roomId: ', roomId);
+    console.log('roomId: ', roomId, game);
     // Get the pre-initialized keyboard controller
-    initKeyboardService();
+    setTimeout(() => {
+      initKeyboardService();
+    }, 2000);
     initGame();
   };
 
@@ -75,7 +77,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function initKeyboardService() {
-    keyboard = game.keyboardController();
+    console.log('init keyboard: ', game);
+    keyboard = game.getKeyboardController();
     console.log('Keyboard controller instance:', keyboard);
     // Set up keyboard controls
     keyboard.on('up', (data) => { 
