@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>P2P Game with PeerJS</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    canvas {
+      border: 1px solid #333;
+      display: block;
+    }
+    button {
+      padding: 8px 12px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    input {
+      padding: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h1>PeerJS Game Engine Demo</h1>
+  <canvas id="gameCanvas"></canvas>
+  
+  <div class="instructions">
+    <h3>Instructions:</h3>
+    <ul>
+      <li>Click "Host Game" to create a new game</li>
+      <li>Share your Room ID with friends</li>
+      <li>Friends can enter the Room ID and click "Join Game"</li>
+      <li>Move your mouse on the canvas to control your player</li>
+      <li>Click on the canvas to shoot bullets</li>
+    </ul>
+  </div>
+  
+  <!-- PeerJS library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.4.7/peerjs.min.js"></script>
+  
+  <!-- GamePeerSDK Demo -->
+  <script type="module">
+    import GamePeerSDK from './GamePeerSDK.js';
+    
+    // Initialize the SDK
+    const game = new GamePeerSDK({
+      debug: true
+    });
+    
+    // Get DOM elements
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 800;
+    canvas.height = 600;
+    
+    // Host game button
+    document.getElementById('hostBtn').onclick = async () => {
+      const roomId = await game.hostGame();
+      document.getElementById('roomInfo').textContent = `Room ID: ${roomId}`;
+    };
+    
+    // Join game button
+    document.getElementById('joinBtn').onclick = async () => {
+      const roomId = document.getElementById('roomIdInput').value;
+      await game.joinGame(roomId);
+      document.getElementById('roomInfo').textContent = `Joined Room: ${roomId}`;
+    };
+    
+    // Game loop
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Render players and objects
+      // ... (implementation would go here)
+      
+      requestAnimationFrame(gameLoop);
+    }
+    
+    gameLoop();
+  </script>
+</body>
+</html>
