@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
       useKeyboardController: true,
       localPlayerId: `player-${Math.random().toString(36).substr(2, 8)}`
     });
+
+    console.log('passing player id: ', `player-${Math.random().toString(36).substr(2, 8)}`);
     
     // Get DOM elements
     const canvas = document.getElementById('gameCanvas');
@@ -67,9 +69,40 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Failed to join game: ' + err.message);
       }
     };
-    
+
+    // Handle bullet hit events
+    game.on('bullet', (hitData) => {
+      console.log('Bullet hit received:', hitData);
+      // Immediately check for collisions at creation point
+      Object.entries(game.players).forEach(([playerId, player]) => {
+        const dx = hitData.x - player.x;
+        const dy = hitData.y - player.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        console.log('getting distance from others: ', distance, player, hitData.playerId);
+        if (distance && distance < 25 && player.id !== hitData.playerId) {
+          game._triggerEvent('playerHit', {
+            targetPlayerId: hitData.playerId,
+            bulletId: hitData.bulletId,
+            message: 'You got hit by a bullet!'
+          });
+        }
+      });
+    });
+
+    game.on('playerHit', (hitData) => {
+      console.log('Bullet hit received:', hitData);
+      if (hitData.targetPlayerId === game.localPlayerId) {
+        game.createGameObject('playerHit', {
+          targetPlayerId: hitData.targetPlayerId,
+          message: `${hitData.targetPlayerId} got hit by a bullet!`
+        });
+        alert(hitData.message);
+      }
+    });
+
     // Handle state updates
     game.on('stateUpdate', (data) => {
+      // console.log('[stateUpdate] receiving updates: ', data);
       if (data.objectId) {
         if (data.objectId.startsWith('player_')) {
           game.players[data.objectId] = game.players[data.objectId] || {};
@@ -104,16 +137,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.fillText(`${player.name} (${id})`, player.x, player.y - 25);
       });
       
-      // Render bullets
-      Object.values(game.gameObjects).forEach(obj => {
-        if (obj.type === 'bullet') {
-          ctx.fillStyle = '#000000';
-          ctx.beginPath();
-          ctx.arc(obj.x, obj.y, 5, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      });
-      
       requestAnimationFrame(gameLoop);
     }
     
@@ -132,11 +155,29 @@ document.addEventListener('DOMContentLoaded', () => {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      game.createGameObject('bullet', {
+
+      // Draw bullet
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.arc(x, y, 5, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Create bullet
+      const bulletId = game.createGameObject('bullet', {
         x, y,
         radius: 5,
         speed: 5,
         direction: Math.random() * Math.PI * 2
+      });
+
+      console.log('getting player id bullet: ', game);
+
+      game._triggerEvent('bullet', {
+        playerId: game.localPlayerId,
+        bulletId: bulletId,
+        x,
+        y,
+        message: 'Fire Bullet!'
       });
     });
     
