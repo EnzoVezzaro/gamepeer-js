@@ -2,14 +2,11 @@
 
 export default class KeyboardController {
   constructor(options = {}) {
-    this.connectionManager = options.connectionManager;
     this.keyStates = new Map();
     this.customBindings = new Map();
-    
-    // Default events
-    this.defaultEvents = ['up', 'down', 'left', 'right', 'space', 'enter'];
     this.eventHandlers = {
-      ...Object.fromEntries(this.defaultEvents.map(e => [e, []])),
+      'keydown': [],
+      'keyup': [],
       'error': []
     };
 
@@ -23,27 +20,23 @@ export default class KeyboardController {
       'Enter': 'enter'
     };
 
-    this._setupEventListeners();
-  }
-
-  // Configure key bindings
-  configure(bindings = []) {
-    try {
-      bindings.forEach(([eventName, keyCode]) => {
+    // Set up custom bindings from options
+    if (options.keybindings) {
+      options.keybindings.forEach(([eventName, keyCode]) => {
         this.customBindings.set(keyCode, eventName);
       });
-    } catch (err) {
-      this._triggerError('Failed to configure key bindings', err);
     }
+
+    this._setupEventListeners();
   }
 
   // Register event handlers
   on(event, handler) {
     if (!this.eventHandlers[event]) {
-      this._triggerError(`Invalid event: ${event}`);
-      return;
+      this.eventHandlers[event] = [];
     }
     this.eventHandlers[event].push(handler);
+    return this; // Enable method chaining
   }
 
   // Private methods
@@ -60,6 +53,12 @@ export default class KeyboardController {
     try {
       const action = this._getActionForKey(e.code);
       if (!action) return;
+
+      // Prevent default for arrow keys to avoid scrolling but allow event propagation
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
 
       this.keyStates.set(action, true);
       this._triggerEvent(action, { 
@@ -79,6 +78,11 @@ export default class KeyboardController {
     try {
       const action = this._getActionForKey(e.code);
       if (!action) return;
+
+      // Prevent default for arrow keys to avoid scrolling
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+        e.preventDefault();
+      }
 
       this.keyStates.set(action, false);
       this._triggerEvent(action, { 

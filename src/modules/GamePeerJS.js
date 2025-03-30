@@ -32,7 +32,11 @@ class GamePeerJS {
       useVoiceChat: false,
       voiceChatOptions: {},
       useKeyboardController: false,
+      keyboardOptions: {
+        keybindings: []
+      },
       useMouseController: false,
+      mouseOptions: {},
       ...options
     };
 
@@ -80,14 +84,16 @@ class GamePeerJS {
     }
 
     if (this.options.useKeyboardController) {
-      this.keyboardController = new KeyboardController({
-        connectionManager: this.connectionManager
+      this._keyboardController = new KeyboardController({
+        connectionManager: this.connectionManager,
+        ...this.options.keyboardOptions
       });
     }
     
     if (this.options.useMouseController) {
       this._mouseController = new MouseController({
-        connectionManager: this.connectionManager
+        connectionManager: this.connectionManager,
+        ...this.options.mouseOptions
       });
     }
   }
@@ -237,7 +243,7 @@ class GamePeerJS {
     if (this.tickInterval) clearInterval(this.tickInterval);
     this.connectionManager.destroy();
     if (this.voiceChat) this.voiceChat.destroy();
-    if (this.keyboardController) this.keyboardController.destroy();
+    if (this._keyboardController) this._keyboardController.destroy();
     if (this._mouseController) this._mouseController.destroy();
   }
 
@@ -246,6 +252,13 @@ class GamePeerJS {
       throw new Error('Mouse controller not enabled - set useMouseController: true in options');
     }
     return this._mouseController;
+  }
+
+  keyboardController() {
+    if (!this.options.useKeyboardController) {
+      throw new Error('Keyboard controller not enabled - set useKeyboardController: true in options');
+    }
+    return this._keyboardController;
   }
   
   // Private methods

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="../../dist/gamepeer-js.js"></script>
+    <script src="snake-demo.js"></script>
+    <title>GamePeerJS Snake Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        #score-container {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        canvas {
+            background-color: #eee;
+            border: 2px solid #333;
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        button, input {
+            padding: 10px 15px;
+            font-size: 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #game-over {
+            font-size: 24px;
+            color: #f44336;
+            height: 30px;
+            margin-bottom: 15px;
+            visibility: hidden;
+        }
+        .instructions {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Multiplayer Snake Game</h1>
+    <div id="score-container">Score: <span id="score">0</span></div>
+    <div id="game-over">Game Over!</div>
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+    
+    <div class="controls">
+        <button id="hostBtn">Host Game</button>
+        <input id="roomInput" type="text" placeholder="Enter Room ID">
+        <button id="joinBtn">Join Game</button>
+    </div>
+    
+    <div class="instructions">
+        <p>Use arrow keys to control your snake</p>
+        <p>Host a game or join an existing room to play with friends!</p>
+    </div>
+</body>
+</html>

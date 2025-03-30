@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
       localPlayerId: `player-${Math.random().toString(36).substr(2, 8)}`
     });
 
+
     // Get DOM elements
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
