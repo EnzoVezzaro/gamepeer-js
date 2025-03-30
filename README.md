@@ -1,8 +1,22 @@
-# GamePeerSDK
+# GamePeerSDK - Peer-to-Peer Game SDK
 
-A browser-to-browser P2P game SDK using PeerJS for direct connections between players.
+## Project Structure
+```
+gamepeer-sdk/
+├── src/
+│   ├── modules/       # Core game modules
+│   │   ├── GamePeerSDK.js   # Main SDK class
+│   │   └── GameState.js     # Game state management  
+│   │
+│   └── services/      # Optional services
+│       ├── MatchmakingService.js
+│       └── VoiceChatManager.js
+│
+├── index.html         # Demo implementation
+└── README.md          # Documentation
+```
 
-## Features
+## Key Features
 
 - **Host/Join Games**: Create or join game sessions with room IDs
 - **Game State Sync**: Automatic synchronization of game objects and players

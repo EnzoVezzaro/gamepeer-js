@@ -1,7 +1,8 @@
 // GamePeerSDK.js - Browser-to-browser P2P game SDK using PeerJS
 
-import MatchmakingService from './MatchmakingService.js';
-import VoiceChatManager from './VoiceChatManager.js';
+import MatchmakingService from '../services/MatchmakingService.js';
+import VoiceChatManager from '../services/VoiceChatManager.js';
+import GameState from './GameState.js';
 
 // Load PeerJS dynamically from CDN
 function loadPeerJS() {
@@ -395,29 +396,6 @@ class GamePeerSDK {
         type: 'fullStateRequest'
       });
     });
-  }
-}
-
-// Helper class for game state management
-class GameState {
-  constructor() {
-    this.state = {};
-  }
-  
-  set(key, value) {
-    this.state[key] = value;
-  }
-  
-  get(key) {
-    return this.state[key];
-  }
-  
-  getFullState() {
-    return this.state;
-  }
-  
-  updateState(updates) {
-    Object.assign(this.state, updates);
   }
 }
 
