@@ -302,9 +302,26 @@ class GamePeerSDK {
     }
   }
 
+  broadcastEvent(eventName, data) {
+    // Trigger locally
+    this._triggerEvent(eventName, data);
+    
+    // Broadcast to all peers
+    if (this.connectionManager.peer) {
+      this.connectionManager.broadcast({
+        type: 'customEvent',
+        eventName,
+        data
+      });
+    }
+  }
+
   _setupDataHandling() {
     this.connectionManager.on('data', ({data}) => {
-      if (data?.type === 'stateUpdate' && data?.objectId) {
+      if (data?.type === 'customEvent') {
+        this._triggerEvent(data.eventName, data.data);
+      }
+      else if (data?.type === 'stateUpdate' && data?.objectId) {
         // this.log(`Received state update for ${data.objectId}`);
         
         // Update local state
