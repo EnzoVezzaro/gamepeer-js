@@ -2,6 +2,7 @@
 
 import MatchmakingService from '../services/MatchmakingService.js';
 import VoiceChatManager from '../services/VoiceChatManager.js';
+import KeyboardController from '../services/KeyboardController.js';
 import GameState from './GameState.js';
 import PeerConnectionManager from './PeerConnectionManager.js';
 
@@ -29,6 +30,7 @@ class GamePeerSDK {
       matchmakingOptions: {},
       useVoiceChat: false,
       voiceChatOptions: {},
+      useKeyboardController: false,
       ...options
     };
 
@@ -73,6 +75,10 @@ class GamePeerSDK {
     
     if (this.options.useVoiceChat) {
       this._initVoiceChat();
+    }
+
+    if (this.options.useKeyboardController) {
+      this.keyboardController = new KeyboardController();
     }
   }
   
@@ -221,6 +227,7 @@ class GamePeerSDK {
     if (this.tickInterval) clearInterval(this.tickInterval);
     this.connectionManager.destroy();
     if (this.voiceChat) this.voiceChat.destroy();
+    if (this.keyboardController) this.keyboardController.destroy();
   }
   
   // Private methods
