@@ -42,48 +42,158 @@
     </ul>
   </div>
   
-  <!-- PeerJS library -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.4.7/peerjs.min.js"></script>
-  
+  <div id="gameControls">
+    <button id="hostBtn">Host Game</button>
+    <div id="joinControls">
+      <input id="roomIdInput" placeholder="Room ID">
+      <button id="joinBtn">Join Game</button>
+    </div>
+    <div id="roomInfo"></div>
+  </div>
+
   <!-- GamePeerSDK Demo -->
   <script type="module">
     import GamePeerSDK from './GamePeerSDK.js';
     
-    // Initialize the SDK
-    const game = new GamePeerSDK({
-      debug: true
+    document.addEventListener('DOMContentLoaded', () => {
+      try {
+        // Initialize the SDK
+        const game = new GamePeerSDK({
+          debug: true
+        });
+        
+        // Get DOM elements
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 800;
+        canvas.height = 600;
+        
+        const hostBtn = document.getElementById('hostBtn');
+        const joinBtn = document.getElementById('joinBtn');
+        const roomInput = document.getElementById('roomIdInput');
+        const roomInfo = document.getElementById('roomInfo');
+        
+        if (!hostBtn || !joinBtn || !roomInput || !roomInfo) {
+          throw new Error('Missing required UI elements');
+        }
+        
+        // Host game button
+        hostBtn.onclick = async () => {
+          try {
+            const roomId = await game.hostGame();
+            roomInfo.textContent = `Room ID: ${roomId}`;
+            hostBtn.disabled = true;
+            joinBtn.disabled = true;
+          } catch (err) {
+            alert('Failed to host game: ' + err.message);
+          }
+        };
+        
+        // Join game button
+        joinBtn.onclick = async () => {
+          try {
+            const roomId = roomInput.value.trim();
+            if (!roomId) {
+              alert('Please enter a room ID');
+              return;
+            }
+            await game.joinGame(roomId);
+            roomInfo.textContent = `Joined Room: ${roomId}`;
+            hostBtn.disabled = true;
+            joinBtn.disabled = true;
+          } catch (err) {
+            alert('Failed to join game: ' + err.message);
+          }
+        };
+        
+        // Handle state updates
+        game.on('stateUpdate', (data) => {
+          if (data.objectId) {
+            if (data.objectId.startsWith('player_')) {
+              if (!game.players[data.objectId]) {
+                game.players[data.objectId] = data.data;
+              } else {
+                Object.assign(game.players[data.objectId], data.data);
+              }
+            } else {
+              if (!game.gameObjects[data.objectId]) {
+                game.gameObjects[data.objectId] = data.data;
+              } else {
+                Object.assign(game.gameObjects[data.objectId], data.data);
+              }
+            }
+          }
+        });
+
+        // Game loop
+        function gameLoop() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          
+          // Debug log all players
+          console.log('Current players:', game.players);
+          
+          // Render players
+          Object.entries(game.players).forEach(([id, player]) => {
+            // Draw player circle
+            ctx.fillStyle = player.color || '#FF0000';
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, 20, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Highlight local player
+            if (id === game.localPlayerId) {
+              ctx.strokeStyle = '#FFFF00';
+              ctx.lineWidth = 2;
+              ctx.stroke();
+            }
+            
+            // Draw player name and ID
+            ctx.fillStyle = '#000000';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${player.name} (${id})`, player.x, player.y - 25);
+          });
+          
+          // Render game objects
+          Object.values(game.gameObjects).forEach(obj => {
+            if (obj.type === 'bullet') {
+              ctx.fillStyle = '#000000';
+              ctx.beginPath();
+              ctx.arc(obj.x, obj.y, 5, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          });
+          
+          requestAnimationFrame(gameLoop);
+        }
+        
+        gameLoop();
+
+        // Handle mouse movement
+        canvas.addEventListener('mousemove', (e) => {
+          const rect = canvas.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          game.movePlayer(x, y);
+        });
+
+        // Handle clicks to shoot
+        canvas.addEventListener('click', (e) => {
+          const rect = canvas.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          game.createGameObject('bullet', {
+            x, y,
+            radius: 5,
+            speed: 5,
+            direction: Math.random() * Math.PI * 2
+          });
+        });
+      } catch (err) {
+        console.error('Game initialization failed:', err);
+        alert('Failed to initialize game: ' + err.message);
+      }
     });
-    
-    // Get DOM elements
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = 800;
-    canvas.height = 600;
-    
-    // Host game button
-    document.getElementById('hostBtn').onclick = async () => {
-      const roomId = await game.hostGame();
-      document.getElementById('roomInfo').textContent = `Room ID: ${roomId}`;
-    };
-    
-    // Join game button
-    document.getElementById('joinBtn').onclick = async () => {
-      const roomId = document.getElementById('roomIdInput').value;
-      await game.joinGame(roomId);
-      document.getElementById('roomInfo').textContent = `Joined Room: ${roomId}`;
-    };
-    
-    // Game loop
-    function gameLoop() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // Render players and objects
-      // ... (implementation would go here)
-      
-      requestAnimationFrame(gameLoop);
-    }
-    
-    gameLoop();
   </script>
 </body>
 </html>

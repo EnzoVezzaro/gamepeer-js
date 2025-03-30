@@ -1,9 +1,11 @@
-// Import the game class
-import SimpleMultiplayerGame from './SimpleMultiplayerGame.js';
+// Import the SDK
+import GamePeerSDK from './GamePeerSDK.js';
 
 class GameUI {
   constructor() {
-    this.game = new SimpleMultiplayerGame();
+    this.game = new GamePeerSDK({
+      debug: true
+    });
     this.canvas = document.getElementById('gameCanvas');
     this.ctx = this.canvas.getContext('2d');
     this.isHost = false;
