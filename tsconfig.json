@@ -1,12 +1,14 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "allowImportingTsExtensions": true,
     "module": "ESNext",
-    "moduleResolution": "node",
-    "strict": true,
+    "moduleResolution": "Node",
+    "resolveJsonModule": true,
     "esModuleInterop": true,
+    "moduleSuffixes": [".js"],
+    "strict": true,
     "skipLibCheck": true,
+    "types": [],
     "forceConsistentCasingInFileNames": true,
     "outDir": "./dist",
     "rootDir": "./src",

@@ -1,5 +1,5 @@
 // Import the SDK
-import GamePeerSDK from './GamePeerSDK.js';
+import GamePeerSDK from './dist/modules/GamePeerSDK.js';
 
 class GameUI {
   constructor() {
