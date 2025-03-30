@@ -1,8 +1,8 @@
 // GamePeerSDK.ts - Browser-to-browser P2P game SDK using PeerJS
 
-import MatchmakingService from '../services/MatchmakingService.js';
-import VoiceChatManager from '../services/VoiceChatManager.js';
-import GameState from './GameState.js';
+import MatchmakingService from '../services/MatchmakingService';
+import VoiceChatManager from '../services/VoiceChatManager';
+import GameState from './GameState';
 import PeerConnectionManager from './PeerConnectionManager';
 import type { PeerJSOption } from 'peerjs';
 
