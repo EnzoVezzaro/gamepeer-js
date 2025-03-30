@@ -7,7 +7,8 @@ class KeyboardDemo {
   constructor() {
     this.game = new GamePeerSDK({
       debug: true,
-      useKeyboardController: true
+      useKeyboardController: true,
+      localPlayerId: 'keyboard-demo-player'
     });
     
     // Create canvas
@@ -50,17 +51,34 @@ class KeyboardDemo {
   _setupControls() {
     // Movement controls
     this.keyActions = {
-      'ArrowUp': () => this.player.y -= 5,
-      'ArrowDown': () => this.player.y += 5,
-      'ArrowLeft': () => this.player.x -= 5,
-      'ArrowRight': () => this.player.x += 5,
-      'Space': () => this._jump()
+      'UP': () => this.player.y -= 5,
+      'DOWN': () => this.player.y += 5,
+      'LEFT': () => this.player.x -= 5,
+      'RIGHT': () => this.player.x += 5,
+      'SPACE': () => this._jump()
     };
 
+    // Prevent default for arrow keys and space
+    window.addEventListener('keydown', (e) => {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+        e.preventDefault();
+      }
+    });
+
     // Subscribe to keyboard events
-    this.game.keyboardController.on('keydown', ({action}) => {
+    this.game.keyboardController.on('keydown', ({action, event}) => {
       const handler = this.keyActions[action];
-      if (handler) handler();
+      if (handler) {
+        handler();
+        this.syncPlayerPosition();
+      }
+    });
+  }
+
+  syncPlayerPosition() {
+    this.game.syncGameObject(`player_${this.game.localPlayerId}`, {
+      x: this.player.x,
+      y: this.player.y
     });
   }
 
