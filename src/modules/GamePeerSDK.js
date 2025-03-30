@@ -297,36 +297,35 @@ class GamePeerSDK {
 
   _setupDataHandling() {
     this.connectionManager.on('data', ({data}) => {
-      if (data.type === 'stateUpdate') {
+      if (data?.type === 'stateUpdate' && data?.objectId) {
         this.log(`Received state update for ${data.objectId}`);
-        // Update local state first
-        if (data.objectId) {
-          if (data.objectId.startsWith('player_')) {
-            this.log(`Updating player ${data.objectId} with:`, data.data);
-            if (!this.players[data.objectId]) {
-              this.players[data.objectId] = {
-                name: `Player ${data.objectId.substr(7, 5)}`,
-                x: 0,
-                y: 0,
-                color: this._getRandomColor(),
-                ...data.data
-              };
-            } else {
-              // Preserve existing color if not in update
-              const currentColor = this.players[data.objectId].color;
-              this.players[data.objectId] = {
-                ...this.players[data.objectId],
-                ...data.data,
-                color: data.data.color || currentColor
-              };
-            }
+        
+        // Update local state
+        if (data.objectId.startsWith('player_')) {
+          this.log(`Updating player ${data.objectId} with:`, data.data);
+          if (!this.players[data.objectId]) {
+            this.players[data.objectId] = {
+              name: `Player ${data.objectId.substr(7, 5)}`,
+              x: 0,
+              y: 0,
+              color: this._getRandomColor(),
+              ...data.data
+            };
           } else {
-            this.log(`Updating object ${data.objectId} with:`, data.data);
-            if (!this.gameObjects[data.objectId]) {
-              this.gameObjects[data.objectId] = data.data;
-            } else {
-              Object.assign(this.gameObjects[data.objectId], data.data);
-            }
+            // Preserve existing color if not in update
+            const currentColor = this.players[data.objectId].color;
+            this.players[data.objectId] = {
+              ...this.players[data.objectId],
+              ...data.data,
+              color: data.data.color || currentColor
+            };
+          }
+        } else {
+          this.log(`Updating object ${data.objectId} with:`, data.data);
+          if (!this.gameObjects[data.objectId]) {
+            this.gameObjects[data.objectId] = data.data;
+          } else {
+            Object.assign(this.gameObjects[data.objectId], data.data);
           }
         }
         
