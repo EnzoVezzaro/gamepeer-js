@@ -208,7 +208,7 @@ class GamePeerSDK {
       data
     });
     
-    this.log(`Synced ${objectId}:`, data);
+    // this.log(`Synced ${objectId}:`, data);
   }
 
   movePlayer(x, y) {
@@ -305,11 +305,11 @@ class GamePeerSDK {
   _setupDataHandling() {
     this.connectionManager.on('data', ({data}) => {
       if (data?.type === 'stateUpdate' && data?.objectId) {
-        this.log(`Received state update for ${data.objectId}`);
+        // this.log(`Received state update for ${data.objectId}`);
         
         // Update local state
         if (data.objectId.startsWith('player_')) {
-          this.log(`Updating player ${data.objectId} with:`, data.data);
+          // this.log(`Updating player ${data.objectId} with:`, data.data);
           if (!this.players[data.objectId]) {
             this.players[data.objectId] = {
               name: `Player ${data.objectId.substr(7, 5)}`,
@@ -328,7 +328,7 @@ class GamePeerSDK {
             };
           }
         } else {
-          this.log(`Updating object ${data.objectId} with:`, data.data);
+          // this.log(`Updating object ${data.objectId} with:`, data.data);
           if (!this.gameObjects[data.objectId]) {
             this.gameObjects[data.objectId] = data.data;
           } else {
