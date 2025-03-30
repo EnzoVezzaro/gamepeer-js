@@ -3,6 +3,7 @@
 import MatchmakingService from '../services/MatchmakingService.js';
 import VoiceChatManager from '../services/VoiceChatManager.js';
 import KeyboardController from '../services/KeyboardController.js';
+import MouseController from '../services/MouseController.js';
 import GameState from './GameState.js';
 import PeerConnectionManager from './PeerConnectionManager.js';
 
@@ -31,6 +32,7 @@ class GamePeerJS {
       useVoiceChat: false,
       voiceChatOptions: {},
       useKeyboardController: false,
+      useMouseController: false,
       ...options
     };
 
@@ -79,6 +81,10 @@ class GamePeerJS {
 
     if (this.options.useKeyboardController) {
       this.keyboardController = new KeyboardController();
+    }
+    
+    if (this.options.useMouseController) {
+      this.mouseController = new MouseController(this.connectionManager);
     }
   }
   
@@ -276,6 +282,17 @@ class GamePeerJS {
 
   _handleNewConnection(peerId) {
     this._setupDataHandling();
+    
+    // Handle mouse events from peers
+    this.connectionManager.on('data', ({data, conn}) => {
+      if (data?.type === 'mouseEvent') {
+        this._triggerEvent('mouse', {
+          event: data.event,
+          data: data.data,
+          peerId: conn?.peer
+        });
+      }
+    });
     this._triggerEvent('connection', { peerId });
   }
 
