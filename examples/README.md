@@ -1,4 +1,4 @@
-# GamePeerSDK Examples
+# GamePeerJS Examples
 
 ## Available Demos
 

@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 class KeyboardDemo {
   constructor() {
-    this.game = new GamePeerSDK({
+    this.game = new GamePeerJS({
       debug: true,
       useKeyboardController: true,
       localPlayerId: 'keyboard-demo-player'

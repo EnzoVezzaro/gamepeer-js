@@ -1,11 +1,11 @@
-// Use global GamePeerSDK from UMD bundle
-const GamePeerSDK = window.GamePeerSDK;
+// Use global GamePeerJS from UMD bundle
+const GamePeerJS = window.GamePeerJS;
 
 // Initialize game when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
   try {
     // Initialize the SDK
-    const game = new GamePeerSDK({
+    const game = new GamePeerJS({
       debug: true,
       useKeyboardController: true,
       localPlayerId: `player-${Math.random().toString(36).substr(2, 8)}`

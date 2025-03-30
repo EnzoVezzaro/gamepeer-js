@@ -3,23 +3,23 @@ import commonjs from '@rollup/plugin-commonjs';
 import terser from '@rollup/plugin-terser';
 
 // Main export
-const GamePeerSDK = 'src/modules/GamePeerSDK.js';
+const GamePeerJS = 'src/modules/GamePeerJS.js';
 
 export default {
-  input: GamePeerSDK,
+  input: GamePeerJS,
   external: ['peerjs'],
   output: [
     {
-      file: 'dist/gamepeer-sdk.js',
+      file: 'dist/gamepeer-js.js',
       format: 'umd',
-      name: 'GamePeerSDK',
+      name: 'GamePeerJS',
       exports: 'default',
       globals: {
         peerjs: 'Peer'
       }
     },
     {
-      file: 'dist/gamepeer-sdk.esm.js',
+      file: 'dist/gamepeer-js.esm.js',
       format: 'esm',
       exports: 'named',
       globals: {

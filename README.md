@@ -1,4 +1,4 @@
-# GamePeerSDK - Peer-to-Peer Game SDK
+# GamePeerJS - Peer-to-Peer Game SDK
 
 ## Features
 
@@ -15,7 +15,7 @@ The SDK includes built-in keyboard input handling:
 
 ```javascript
 // Initialize with keyboard controls enabled
-const game = new GamePeerSDK({
+const game = new GamePeerJS({
   useKeyboardControls: true // Enabled by default
 });
 

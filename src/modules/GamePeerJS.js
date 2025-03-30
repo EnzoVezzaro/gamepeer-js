@@ -1,4 +1,4 @@
-// GamePeerSDK.js - Browser-to-browser P2P game SDK using PeerJS
+// GamePeerJS.js - Browser-to-browser P2P game SDK using PeerJS
 
 import MatchmakingService from '../services/MatchmakingService.js';
 import VoiceChatManager from '../services/VoiceChatManager.js';
@@ -20,7 +20,7 @@ function loadPeerJS() {
   });
 }
 
-class GamePeerSDK {
+class GamePeerJS {
   constructor(options = {}) {
     this.options = {
       debug: false,
@@ -36,7 +36,7 @@ class GamePeerSDK {
 
     this._setupLogger = () => {
       this.log = this.options.debug 
-        ? console.log.bind(console, '[GamePeerSDK]')
+        ? console.log.bind(console, '[GamePeerJS]')
         : () => {};
     };
     
@@ -381,4 +381,4 @@ class GamePeerSDK {
   }
 }
 
-export default GamePeerSDK;
+export default GamePeerJS;
