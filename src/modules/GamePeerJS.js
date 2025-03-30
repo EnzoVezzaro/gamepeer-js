@@ -80,11 +80,15 @@ class GamePeerJS {
     }
 
     if (this.options.useKeyboardController) {
-      this.keyboardController = new KeyboardController();
+      this.keyboardController = new KeyboardController({
+        connectionManager: this.connectionManager
+      });
     }
     
     if (this.options.useMouseController) {
-      this.mouseController = new MouseController(this.connectionManager);
+      this.mouseController = new MouseController({
+        connectionManager: this.connectionManager
+      });
     }
   }
   
@@ -234,6 +238,7 @@ class GamePeerJS {
     this.connectionManager.destroy();
     if (this.voiceChat) this.voiceChat.destroy();
     if (this.keyboardController) this.keyboardController.destroy();
+    if (this.mouseController) this.mouseController.destroy();
   }
   
   // Private methods

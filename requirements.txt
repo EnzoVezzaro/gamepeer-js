@@ -1,0 +1,146 @@
+
+
+
+GamePeer JS Developer Experience
+
+I want to be this way:
+
+Initialize 
+const game = new GamePeerJS({
+  debug: true,
+  useKeyboardController: true, 
+  useMouseController: true, // create this one, if true it need to track the mouse and listen to it, like keyboard services
+  localPlayerId: `player-${Math.random().toString(36).substr(2, 8)}` // if not passed, it get created for you
+  ...
+});
+
+// host game
+const roomId = await game.hostGame(); // return room id
+
+// join game
+const result = await game.joinGame(roomId); // return "success" or "failed"
+
+// listen to custom events
+game.on(<CUSTOM_EVENT_NAME />, (data) => {
+  ...
+})
+
+// global listener 'stateUpdate' - this listens and broadcast all changes. These are always available and brodcasting
+CUSTOM_SYSTEM_DEFAULTS = 'stateUpdate'
+game.on(<CUSTOM_SYSTEM_DEFAULTS />, (data) => {
+  ...
+})
+
+// create object Game
+game.createGameObject(<CUSTOM_ID />, {
+  ...
+})
+
+// global broadcastEvent - this broadcast the data for all users
+game.broadcastEvent('bullet', {
+  ...
+})
+
+// -------------------
+// -------------------
+
+Must be configued as useKeyboardController: true in Initialize
+If this is not set, don't broadcast or track keyboard
+
+// controller keyboardController
+const keyboard = game.keyboardController({
+  keybindings: [[EVENT_NAME, KEY_NAME (example "ArrowLeft")]]
+})
+
+// listens to key events
+keyboard.on(<EVENT_NAME />, ({action, event}) => {
+  ...
+});
+
+// default bindings available - these are listen and broadcast by default.
+EVENT_DEFAULT_NAME = 'up', 'down', 'left', 'right', 'space', 'enter'
+keyboard.on(<EVENT_DEFAULT_NAME />, ({action, event}) => {
+  ...
+});
+
+// listens to any error in the controller
+mouse.on('error', ({message, error}) => {
+  console.error('Matchmaking error:', message, error);
+});
+
+// -------------------
+// -------------------
+
+Must be configued as useMouseController: true in Initialize
+If this is not set, don't broadcast or track mouse
+
+// controller keyboardController
+const mouse = game.mouseController({
+  keybindings: [[EVENT_NAME, KEY_NAME (example "right click")]]
+})
+
+// listens to key events
+mouse.on(<EVENT_NAME />, ({action, event}) => {
+  ...
+});
+
+// default bindings available - these are listen and broadcast by default.
+EVENT_DEFAULT_NAME = 'mousemove', 'mousedown', 'mouseup', 'click', ...
+mouse.on(<EVENT_DEFAULT_NAME />, ({action, event}) => {
+  ...
+});
+
+// listens to any error in the controller
+mouse.on('error', ({message, error}) => {
+  console.error('Matchmaking error:', message, error);
+});
+
+
+// -------------------
+// -------------------
+
+// Matchmaking
+const matchmaking = game.matchmaking({
+  ...
+})
+
+// Initialize with unique client ID
+await matchmaking.init(clientId);
+
+// Register Room
+await matchmaking.registerRoom(roomId, {
+  ...
+});
+
+// Update Room
+await matchmaking.updateRoom({
+  ...
+});
+
+// get all rooms
+const rooms = await matchmaking.refreshRooms();
+
+// filter rooms
+const filteredRooms = matchmaking.findRooms({
+  ...
+});
+
+// Join Room
+const roomInfo = await matchmaking.joinRoom(roomId, 'password-if-required');
+// Returns { id, host, password }
+
+// listen to changes to the room
+matchmaking.on('roomsUpdated', ({rooms}) => {
+  console.log('Updated rooms list:', rooms);
+});
+
+// listens to any error in the controller
+matchmaking.on('error', ({message, error}) => {
+  console.error('Matchmaking error:', message, error);
+});
+
+// clean up room
+matchmaking.destroy();
+
+
+//// FOLLOW THIS PATTERN FOR the rest
