@@ -3,6 +3,7 @@
 import MatchmakingService from '../services/MatchmakingService.js';
 import VoiceChatManager from '../services/VoiceChatManager.js';
 import GameState from './GameState.js';
+import PeerConnectionManager from './PeerConnectionManager.js';
 
 // Load PeerJS dynamically from CDN
 function loadPeerJS() {
@@ -37,8 +38,7 @@ class GamePeerSDK {
         : () => {};
     };
     
-    this.peer = null;
-    this.connections = new Map(); // Store active connections
+    this.connectionManager = new PeerConnectionManager(this.options.peerOptions);
     this.gameState = new GameState();
     this.isHost = false;
     this.clientId = null;
@@ -83,47 +83,37 @@ class GamePeerSDK {
     const id = roomId || this._generateRoomId();
     
     try {
-      return await new Promise((resolve, reject) => {
-        this.peer = new Peer(id, this.options.peerOptions);
-        
-        this.peer.on('open', async (peerId) => {
-          this.clientId = peerId;
-          this.localPlayerId = `player_${peerId}`;
-          this.log(`Initialized as host with ID: ${peerId}`);
-          
-          // Register with matchmaking if enabled
-          if (this.matchmaking) {
-            try {
-              await this.matchmaking.init(peerId);
-              await this.matchmaking.registerRoom(peerId, roomMetadata);
-            } catch (err) {
-              this.log('Warning: Failed to register with matchmaking service', err);
-            }
-          }
-          
-          // Initialize voice chat if enabled
-          if (this.voiceChat) {
-            try {
-              await this.voiceChat.init(this.peer);
-            } catch (err) {
-              this.log('Warning: Failed to initialize voice chat', err);
-            }
-          }
-          
-          this._createLocalPlayer();
-          this._startGameLoop();
-          resolve(peerId);
-        });
-        
-        this.peer.on('connection', (conn) => {
-          this._handleNewConnection(conn);
-        });
-        
-        this.peer.on('error', (err) => {
-          this._triggerEvent('error', err);
-          reject(err);
-        });
+      this.clientId = await this.connectionManager.createPeer(id);
+      this.localPlayerId = `player_${this.clientId}`;
+      this.log(`Initialized as host with ID: ${this.clientId}`);
+      
+      // Register with matchmaking if enabled
+      if (this.matchmaking) {
+        try {
+          await this.matchmaking.init(this.clientId);
+          await this.matchmaking.registerRoom(this.clientId, roomMetadata);
+        } catch (err) {
+          this.log('Warning: Failed to register with matchmaking service', err);
+        }
+      }
+      
+      // Initialize voice chat if enabled
+      if (this.voiceChat) {
+        try {
+          await this.voiceChat.init(this.connectionManager.peer);
+        } catch (err) {
+          this.log('Warning: Failed to initialize voice chat', err);
+        }
+      }
+      
+      this.connectionManager.onConnection((peerId) => {
+        this._handleNewConnection(peerId);
       });
+      
+      this._createLocalPlayer();
+      this._startGameLoop();
+      
+      return this.clientId;
     } catch (err) {
       this._triggerEvent('error', err);
       throw err;
@@ -134,58 +124,39 @@ class GamePeerSDK {
   async joinGame(hostId) {
     await loadPeerJS();
     try {
-      return await new Promise((resolve, reject) => {
-        this.peer = new Peer(this.options.peerOptions);
-        
-        this.peer.on('open', async (id) => {
-          this.clientId = id;
-          this.localPlayerId = `player_${id}`;
-          this.log(`Initialized as client with ID: ${id}`);
-          
-          // Initialize voice chat if enabled
-          if (this.voiceChat) {
-            try {
-              await this.voiceChat.init(this.peer);
-            } catch (err) {
-              this.log('Warning: Failed to initialize voice chat', err);
-            }
-          }
-          
-          // Connect to the host
-          const conn = this.peer.connect(hostId, {
-            reliable: true
-          });
-          
-          conn.on('open', () => {
-            this.log(`Connected to host: ${hostId}`);
-            this.connections.set(hostId, conn);
-            
-            this._setupDataHandling(conn);
-            this._triggerEvent('connection', { peerId: hostId });
-            
-            // Connect to voice chat if enabled
-            if (this.voiceChat) {
-              this.voiceChat.callPeer(hostId).catch(err => {
-                this.log('Warning: Failed to connect voice chat', err);
-              });
-            }
-            
-            this._createLocalPlayer();
-            this._requestFullState();
-            resolve(hostId);
-          });
-          
-          conn.on('error', (err) => {
-            this._triggerEvent('error', err);
-            reject(err);
-          });
-        });
-        
-        this.peer.on('error', (err) => {
-          this._triggerEvent('error', err);
-          reject(err);
-        });
+      this.clientId = await this.connectionManager.createPeer();
+      this.localPlayerId = `player_${this.clientId}`;
+      this.log(`Initialized as client with ID: ${this.clientId}`);
+      
+      // Initialize voice chat if enabled
+      if (this.voiceChat) {
+        try {
+          await this.voiceChat.init(this.connectionManager.peer);
+        } catch (err) {
+          this.log('Warning: Failed to initialize voice chat', err);
+        }
+      }
+      
+      // Connect to the host
+      const conn = await this.connectionManager.connect(hostId, {
+        reliable: true
       });
+      
+      this.log(`Connected to host: ${hostId}`);
+      this._setupDataHandling(conn);
+      this._triggerEvent('connection', { peerId: hostId });
+      
+      // Connect to voice chat if enabled
+      if (this.voiceChat) {
+        this.voiceChat.callPeer(hostId).catch(err => {
+          this.log('Warning: Failed to connect voice chat', err);
+        });
+      }
+      
+      this._createLocalPlayer();
+      this._requestFullState();
+      
+      return hostId;
     } catch (err) {
       this._triggerEvent('error', err);
       throw err;
@@ -207,7 +178,7 @@ class GamePeerSDK {
   }
   
   syncGameObject(objectId, data) {
-    if (!this.peer) return;
+    if (!this.connectionManager.peer) return;
     
     // Update local state
     if (objectId.startsWith('player_')) {
@@ -224,26 +195,12 @@ class GamePeerSDK {
       }
     }
     
-    // If client, send update to host
-    if (!this.isHost) {
-      this.connections.forEach(conn => {
-        conn.send({
-          type: 'stateUpdate',
-          objectId,
-          data
-        });
-      });
-    }
-    // If host, broadcast to all clients
-    else {
-      this.connections.forEach(conn => {
-        conn.send({
-          type: 'stateUpdate',
-          objectId,
-          data
-        });
-      });
-    }
+    // Send update to all connections
+    this.connectionManager.broadcast({
+      type: 'stateUpdate',
+      objectId,
+      data
+    });
     
     this.log(`Synced ${objectId}:`, data);
   }
@@ -262,7 +219,7 @@ class GamePeerSDK {
   // Clean up resources
   destroy() {
     if (this.tickInterval) clearInterval(this.tickInterval);
-    if (this.peer) this.peer.destroy();
+    this.connectionManager.destroy();
     if (this.voiceChat) this.voiceChat.destroy();
   }
   
@@ -272,11 +229,16 @@ class GamePeerSDK {
       name: `Player ${this.clientId.substr(0, 5)}`,
       x: Math.floor(Math.random() * 500),
       y: Math.floor(Math.random() * 500),
-      color: this._getRandomColor()
+      color: this._getRandomColor(),
+      id: this.localPlayerId
     };
     
     this.players[this.localPlayerId] = playerData;
-    this.syncGameObject(this.localPlayerId, playerData);
+    // Force full sync of all player properties
+    this.syncGameObject(this.localPlayerId, {
+      ...playerData,
+      syncAll: true
+    });
   }
   
   _getRandomColor() {
@@ -305,10 +267,9 @@ class GamePeerSDK {
     return Math.random().toString(36).substr(2, 8);
   }
 
-  _handleNewConnection(conn) {
-    this.connections.set(conn.peer, conn);
-    this._setupDataHandling(conn);
-    this._triggerEvent('connection', { peerId: conn.peer });
+  _handleNewConnection(peerId) {
+    this._setupDataHandling();
+    this._triggerEvent('connection', { peerId });
   }
 
   on(eventName, handler) {
@@ -334,18 +295,30 @@ class GamePeerSDK {
     }
   }
 
-  _setupDataHandling(conn) {
-    conn.on('data', (data) => {
+  _setupDataHandling() {
+    this.connectionManager.on('data', ({data}) => {
       if (data.type === 'stateUpdate') {
-        this.log(`Received state update for ${data.objectId} from ${conn.peer}`);
+        this.log(`Received state update for ${data.objectId}`);
         // Update local state first
         if (data.objectId) {
           if (data.objectId.startsWith('player_')) {
             this.log(`Updating player ${data.objectId} with:`, data.data);
             if (!this.players[data.objectId]) {
-              this.players[data.objectId] = data.data;
+              this.players[data.objectId] = {
+                name: `Player ${data.objectId.substr(7, 5)}`,
+                x: 0,
+                y: 0,
+                color: this._getRandomColor(),
+                ...data.data
+              };
             } else {
-              Object.assign(this.players[data.objectId], data.data);
+              // Preserve existing color if not in update
+              const currentColor = this.players[data.objectId].color;
+              this.players[data.objectId] = {
+                ...this.players[data.objectId],
+                ...data.data,
+                color: data.data.color || currentColor
+              };
             }
           } else {
             this.log(`Updating object ${data.objectId} with:`, data.data);
@@ -357,22 +330,12 @@ class GamePeerSDK {
           }
         }
         
-        // If host, broadcast to other clients
-        if (this.isHost) {
-          this.connections.forEach(otherConn => {
-            if (otherConn !== conn) {
-              otherConn.send(data);
-            }
-          });
-        }
-        
         this._triggerEvent('stateUpdate', data);
       }
     });
 
-    conn.on('close', () => {
-      this.connections.delete(conn.peer);
-      this._triggerEvent('disconnection', { peerId: conn.peer });
+    this.connectionManager.on('disconnection', ({peerId}) => {
+      this._triggerEvent('disconnection', { peerId });
     });
   }
 
@@ -380,21 +343,17 @@ class GamePeerSDK {
     this.tickInterval = setInterval(() => {
       if (this.isHost) {
         // Sync game state with all connected peers
-        this.connections.forEach(conn => {
-          conn.send({
-            type: 'stateUpdate',
-            data: this.gameState.getFullState()
-          });
+        this.connectionManager.broadcast({
+          type: 'stateUpdate',
+          data: this.gameState.getFullState()
         });
       }
     }, 1000 / this.options.tickRate);
   }
 
   _requestFullState() {
-    this.connections.forEach(conn => {
-      conn.send({
-        type: 'fullStateRequest'
-      });
+    this.connectionManager.broadcast({
+      type: 'fullStateRequest'
     });
   }
 }
