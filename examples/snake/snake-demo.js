@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const scoreDisplay = document.getElementById('score');
   const gameOverDisplay = document.getElementById('game-over');
   
-  // Initialize game
+  // Initialize game with keyboard controller
   const game = new GamePeerJS({
     debug: true,
     useKeyboardController: true,
@@ -20,7 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   console.log('game engine init: ', game);
-  
 
   // Game state
   let snake = [];
@@ -31,52 +30,28 @@ document.addEventListener('DOMContentLoaded', () => {
   let gameSpeed = INITIAL_SPEED;
   let gameLoopInterval;
   let isGameOver = false;
-
-  // Initialize keyboard controller
-  console.log('Initializing keyboard controller...');
-  const keyboard = game.keyboardController({
-    keybindings: [
-      ['up', 'ArrowUp'],
-      ['down', 'ArrowDown'],
-      ['left', 'ArrowLeft'], 
-      ['right', 'ArrowRight']
-    ]
-  });
-  console.log('Keyboard controller instance:', keyboard);
-
-  // Verify event binding
-  keyboard.on('up', () => { 
-    console.log('UP key pressed - handler called');
-    if (direction !== 'down') nextDirection = 'up'; 
-  }).on('down', () => { 
-    console.log('DOWN key pressed - handler called'); 
-    if (direction !== 'up') nextDirection = 'down'; 
-  }).on('left', () => { 
-    console.log('LEFT key pressed - handler called');
-    if (direction !== 'right') nextDirection = 'left'; 
-  }).on('right', () => { 
-    console.log('RIGHT key pressed - handler called');
-    if (direction !== 'left') nextDirection = 'right'; 
-  });
-
-  console.log('Keyboard event handlers registered');
+  let keyboard = null;
 
   // Host or join game
   document.getElementById('hostBtn').onclick = async () => {
-    await game.hostGame();
+    const roomId = await game.hostGame();
+    console.log('roomId: ', roomId);
+    // Get the pre-initialized keyboard controller
+    initKeyboardService();
     initGame();
   };
 
   document.getElementById('joinBtn').onclick = async () => {
     const roomId = document.getElementById('roomInput').value;
+    console.log('joining room: ', roomId);
     await game.joinGame(roomId);
+    initKeyboardService();
     initGame();
   };
 
   // Initialize game state
   function initGame() {
     console.log('Initializing game...');
-    // Create initial snake
     const startX = Math.floor(GRID_SIZE / 4);
     const startY = Math.floor(GRID_SIZE / 2);
     snake = [
@@ -95,9 +70,31 @@ document.addEventListener('DOMContentLoaded', () => {
     updateScore();
     gameOverDisplay.style.display = 'none';
     
-    // Start game loop
     if (gameLoopInterval) clearInterval(gameLoopInterval);
     gameLoopInterval = setInterval(gameLoop, gameSpeed);
+  }
+
+  function initKeyboardService() {
+    keyboard = game.keyboardController();
+    console.log('Keyboard controller instance:', keyboard);
+    // Set up keyboard controls
+    keyboard.on('up', (data) => { 
+      if (!data || data.playerId !== game.localPlayerId) {
+        if (direction !== 'down') nextDirection = 'up';
+      }
+    }).on('down', (data) => { 
+      if (!data || data.playerId !== game.localPlayerId) {
+        if (direction !== 'up') nextDirection = 'down';
+      }
+    }).on('left', (data) => { 
+      if (!data || data.playerId !== game.localPlayerId) {
+        if (direction !== 'right') nextDirection = 'left';
+      }
+    }).on('right', (data) => { 
+      if (!data || data.playerId !== game.localPlayerId) {
+        if (direction !== 'left') nextDirection = 'right';
+      }
+    });
   }
 
   // Main game loop
@@ -107,24 +104,19 @@ document.addEventListener('DOMContentLoaded', () => {
     direction = nextDirection;
     moveSnake();
     
-    // Check collisions
     if (checkCollision()) {
       gameOver();
       return;
     }
     
-    // Check food
     if (snake[0].x === food.x && snake[0].y === food.y) {
       eatFood();
     }
     
-    // Draw everything
     draw();
   }
 
-  // Move snake
   function moveSnake() {
-    // console.log('Moving snake, direction:', direction);
     const head = {...snake[0]};
     
     switch(direction) {
@@ -134,7 +126,6 @@ document.addEventListener('DOMContentLoaded', () => {
       case 'right': head.x++; break;
     }
     
-    // Wrap around edges
     if (head.x >= GRID_SIZE) head.x = 0;
     if (head.x < 0) head.x = GRID_SIZE - 1;
     if (head.y >= GRID_SIZE) head.y = 0;
@@ -144,47 +135,32 @@ document.addEventListener('DOMContentLoaded', () => {
     snake.pop();
   }
 
-  // Check collisions
   function checkCollision() {
     const head = snake[0];
-    
-    // Check self collision
     for (let i = 1; i < snake.length; i++) {
       if (head.x === snake[i].x && head.y === snake[i].y) {
         return true;
       }
     }
-    
     return false;
   }
 
-  // Handle eating food
   function eatFood() {
-    // Grow snake
     const tail = {...snake[snake.length-1]};
     snake.push(tail);
-    
-    // Increase score
     score += 10;
     updateScore();
-    
-    // Increase speed
     gameSpeed = Math.max(INITIAL_SPEED - (score / 2), 50);
     clearInterval(gameLoopInterval);
     gameLoopInterval = setInterval(gameLoop, gameSpeed);
-    
-    // Generate new food
     generateFood();
   }
 
-  // Generate food at random position
   function generateFood() {
     food = {
       x: Math.floor(Math.random() * GRID_SIZE),
       y: Math.floor(Math.random() * GRID_SIZE)
     };
-    
-    // Make sure food doesn't spawn on snake
     for (const segment of snake) {
       if (segment.x === food.x && segment.y === food.y) {
         return generateFood();
@@ -192,27 +168,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Game over
   function gameOver() {
     isGameOver = true;
     clearInterval(gameLoopInterval);
     gameOverDisplay.style.display = 'block';
   }
 
-  // Update score display
   function updateScore() {
     scoreDisplay.textContent = `Score: ${score}`;
     game.broadcastEvent('scoreUpdate', { score });
   }
 
-  // Draw game
   function draw() {
-    console.log('Drawing game state');
-    // Clear canvas
     ctx.fillStyle = '#f0f0f0';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Draw snake
     ctx.fillStyle = '#333';
     for (const segment of snake) {
       ctx.fillRect(
@@ -223,7 +193,6 @@ document.addEventListener('DOMContentLoaded', () => {
       );
     }
     
-    // Draw head
     ctx.fillStyle = '#0066cc';
     ctx.fillRect(
       snake[0].x * CELL_SIZE, 
@@ -232,7 +201,6 @@ document.addEventListener('DOMContentLoaded', () => {
       CELL_SIZE
     );
     
-    // Draw food
     ctx.fillStyle = '#cc3300';
     ctx.fillRect(
       food.x * CELL_SIZE, 
@@ -242,7 +210,6 @@ document.addEventListener('DOMContentLoaded', () => {
     );
   }
 
-  // Listen for score updates from other players
   game.on('scoreUpdate', (data) => {
     if (data.score > score) {
       score = data.score;

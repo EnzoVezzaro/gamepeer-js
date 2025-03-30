@@ -46,6 +46,7 @@ class GamePeerJS {
         : () => {};
     };
     
+    // Initialize core systems first
     this.connectionManager = new PeerConnectionManager(this.options.peerOptions);
     this.gameState = new GameState();
     this.isHost = false;
@@ -56,11 +57,7 @@ class GamePeerJS {
     // Game state
     this.players = {};
     this.gameObjects = {};
-    this.localPlayerId = null;
-    
-    // Matchmaking and voice chat managers
-    this.matchmaking = null;
-    this.voiceChat = null;
+    this.localPlayerId = null; 
     
     this.eventHandlers = {
       'connection': [],
@@ -74,23 +71,30 @@ class GamePeerJS {
     
     this._setupLogger();
     
-    // Initialize optional services
-    if (this.options.useMatchmaking) {
-      this._initMatchmaking();
-    }
-    
-    if (this.options.useVoiceChat) {
-      this._initVoiceChat();
-    }
+    // Initialize services only after core systems are ready
+    this._initServices();
+  }
 
-    if (this.options.useKeyboardController) {
+  _initServices() {
+    // Only initialize services after room is created (in hostGame/joinGame)
+    this._keyboardController = null;
+    this._mouseController = null;
+    this._matchmaking = null;
+    this._voiceChat = null;
+  }
+
+  _initServiceInstances() {
+    // Initialize keyboard controller if requested
+    if (this.options.useKeyboardController && !this._keyboardController) {
       this._keyboardController = new KeyboardController({
         connectionManager: this.connectionManager,
+        playerId: this.localPlayerId,
         ...this.options.keyboardOptions
       });
     }
-    
-    if (this.options.useMouseController) {
+
+    // Initialize other services similarly...
+    if (this.options.useMouseController && !this._mouseController) {
       this._mouseController = new MouseController({
         connectionManager: this.connectionManager,
         ...this.options.mouseOptions
@@ -251,12 +255,28 @@ class GamePeerJS {
     if (!this.options.useMouseController) {
       throw new Error('Mouse controller not enabled - set useMouseController: true in options');
     }
+    if (!this._mouseController) {
+      this._mouseController = new MouseController({
+        connectionManager: this.connectionManager,
+        ...this.options.mouseOptions
+      });
+    }
     return this._mouseController;
   }
 
   keyboardController() {
     if (!this.options.useKeyboardController) {
       throw new Error('Keyboard controller not enabled - set useKeyboardController: true in options');
+    }
+    if (!this.clientId) {
+      throw new Error('KeyboardController can only be accessed after room creation (call hostGame() or joinGame() first)');
+    }
+    if (!this._keyboardController) {
+      this._keyboardController = new KeyboardController({
+        connectionManager: this.connectionManager,
+        playerId: this.localPlayerId,
+        ...this.options.keyboardOptions
+      });
     }
     return this._keyboardController;
   }
@@ -284,21 +304,29 @@ class GamePeerJS {
     return colors[Math.floor(Math.random() * colors.length)];
   }
 
-  _initMatchmaking() {
-    this.matchmaking = new MatchmakingService(this.options.matchmakingOptions);
-    this.matchmaking.on('roomsUpdated', (rooms) => {
-      this._triggerEvent('roomsUpdated', rooms);
-    });
+  get matchmaking() {
+    if (!this.options.useMatchmaking) return null;
+    if (!this._matchmaking) {
+      this._matchmaking = new MatchmakingService(this.options.matchmakingOptions);
+      this._matchmaking.on('roomsUpdated', (rooms) => {
+        this._triggerEvent('roomsUpdated', rooms);
+      });
+    }
+    return this._matchmaking;
   }
 
-  _initVoiceChat() {
-    this.voiceChat = new VoiceChatManager(this.options.voiceChatOptions);
-    this.voiceChat.on('connected', (peerId) => {
-      this._triggerEvent('voiceChatConnected', { peerId });
-    });
-    this.voiceChat.on('disconnected', (peerId) => {
-      this._triggerEvent('voiceChatDisconnected', { peerId });
-    });
+  get voiceChat() {
+    if (!this.options.useVoiceChat) return null;
+    if (!this._voiceChat) {
+      this._voiceChat = new VoiceChatManager(this.options.voiceChatOptions);
+      this._voiceChat.on('connected', (peerId) => {
+        this._triggerEvent('voiceChatConnected', { peerId });
+      });
+      this._voiceChat.on('disconnected', (peerId) => {
+        this._triggerEvent('voiceChatDisconnected', { peerId });
+      });
+    }
+    return this._voiceChat;
   }
 
   _generateRoomId() {
@@ -362,6 +390,9 @@ class GamePeerJS {
     this.connectionManager.on('data', ({data}) => {
       if (data?.type === 'customEvent') {
         this._triggerEvent(data.eventName, data.data);
+      }
+      else if (data?.type === 'keyboardEvent') {
+        this._triggerEvent(data.event, data.data);
       }
       else if (data?.type === 'stateUpdate' && data?.objectId) {
         // this.log(`Received state update for ${data.objectId}`);
