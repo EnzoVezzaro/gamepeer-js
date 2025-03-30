@@ -1,5 +1,7 @@
 // Keyboard Control Demo
-import GamePeerSDK from '../src/modules/GamePeerSDK.js';
+document.addEventListener('DOMContentLoaded', () => {
+  new KeyboardDemo();
+});
 
 class KeyboardDemo {
   constructor() {
@@ -94,8 +96,3 @@ class KeyboardDemo {
     this.ctx.fillText('Click canvas to focus', 20, 90);
   }
 }
-
-// Start demo when page loads
-window.addEventListener('load', () => {
-  new KeyboardDemo();
-});

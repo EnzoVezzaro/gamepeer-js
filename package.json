@@ -1,0 +1,34 @@
+{
+  "type": "module",
+  "name": "gamepeer-sdk",
+  "version": "1.0.0",
+  "description": "Peer-to-peer gaming SDK with matchmaking capabilities",
+  "main": "dist/gamepeer-sdk.js",
+  "module": "dist/gamepeer-sdk.esm.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rollup -c",
+    "dev": "rollup -c -w",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "webrtc",
+    "peerjs",
+    "gaming",
+    "matchmaking",
+    "p2p"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^24.0.0",
+    "@rollup/plugin-node-resolve": "^15.0.1",
+    "rollup": "^3.20.0",
+    "@rollup/plugin-terser": "^0.4.3"
+  },
+  "dependencies": {
+    "peerjs": "^1.4.7"
+  }
+}
