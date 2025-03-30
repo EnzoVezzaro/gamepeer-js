@@ -2,7 +2,6 @@
 
 export default class KeyboardController {
   constructor(options = {}) {
-    this.keyStates = new Map();
     this.customBindings = new Map();
     this.eventHandlers = {
       'keydown': [],
@@ -62,45 +61,34 @@ export default class KeyboardController {
       if (!action) return;
 
       // Block arrow keys from scrolling
+      console.log('press key: 1');
       if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) {
         e.preventDefault();
         e.stopImmediatePropagation();
-        
-        // Only process if not already pressed
-        if (!this.keyStates.get(action)) {
-          this.keyStates.set(action, true);
-          this._triggerEvent(action, {
-            action: 'down',
-            event: e
-          });
-          this._broadcast(action, {
-            action: 'down',
-            event: e
-          });
-        }
         return false;
       }
-
-      this.keyStates.set(action, true);
+      console.log('press key: 2');
       this._triggerEvent(action, {
         action: 'down',
         event: e
       });
+      console.log('press key: 3');
       this._broadcast(action, {
         action: 'down',
         event: e
       });
+      console.log('press key: 4');
     } catch (err) {
       this._triggerError('Key down error', err);
     }
   }
 
   _handleKeyUp(e) {
+    console.log('press key: ', e);
     try {
       const action = this._getActionForKey(e.code);
       if (!action) return;
 
-      this.keyStates.set(action, false);
       this._triggerEvent(action, {
         action: 'up',
         event: e
@@ -119,6 +107,7 @@ export default class KeyboardController {
   }
 
   _broadcast(event, data) {
+    console.log('press key: _broadcast', event, data, this.connectionManager);
     if (this.connectionManager) {
       this.connectionManager.broadcast({
         type: event,
@@ -133,6 +122,7 @@ export default class KeyboardController {
   }
 
   _triggerEvent(event, data) {
+    console.log('press key: _triggerEvent', event, data);
     this.eventHandlers[event]?.forEach(handler => handler(data));
   }
 

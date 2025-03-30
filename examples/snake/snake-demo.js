@@ -78,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function initKeyboardService() {
     console.log('init keyboard: ', game);
-    keyboard = game.getKeyboardController();
+    keyboard = game.getKeyboardController(); 
     console.log('Keyboard controller instance:', keyboard);
     // Set up keyboard controls
     keyboard.on('up', (data) => { 
