@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GamePeer SDK - Matchmaking Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+        .panel {
+            flex: 1;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        button {
+            padding: 8px 12px;
+            margin: 5px 0;
+            cursor: pointer;
+        }
+        input, select {
+            padding: 8px;
+            margin: 5px 0;
+            width: 100%;
+        }
+        #roomList {
+            list-style: none;
+            padding: 0;
+        }
+        #roomList li {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+        #roomList li:hover {
+            background-color: #f5f5f5;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>GamePeer SDK - Matchmaking Demo</h1>
+    <div class="container">
+        <div class="panel">
+            <h2>Create Room</h2>
+            <input type="text" id="playerId" placeholder="Your Player ID">
+            <input type="text" id="roomName" placeholder="Room Name">
+            <input type="number" id="maxPlayers" placeholder="Max Players" min="2" max="16" value="4">
+            <select id="gameMode">
+                <option value="standard">Standard</option>
+                <option value="team">Team</option>
+                <option value="ffa">Free For All</option>
+            </select>
+            <input type="password" id="roomPassword" placeholder="Password (optional)">
+            <button id="createBtn">Create Room</button>
+            
+            <div class="status">
+                <h3>Status</h3>
+                <div id="statusText">Not connected</div>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <h2>Join Room</h2>
+            <input type="text" id="joinPlayerId" placeholder="Your Player ID">
+            <ul id="roomList"></ul>
+            <div id="passwordPrompt" style="display: none;">
+                <input type="password" id="joinPassword" placeholder="Room Password">
+                <button id="joinBtn">Join</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="matchmaking-demo.js"></script>
+</body>
+</html>

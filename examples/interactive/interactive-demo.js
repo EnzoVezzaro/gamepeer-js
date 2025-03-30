@@ -1,11 +1,13 @@
-// Import the SDK
-import GamePeerSDK from './GamePeerSDK.js';
+// Import the SDK with path relative to examples folder
+import GamePeerSDK from '../src/modules/GamePeerSDK.js';
 
 class GameUI {
   constructor() {
     this.game = new GamePeerSDK({
-      debug: true
+      debug: true,
+      useKeyboardController: true
     });
+    console.log('KeyboardController initialized?', !!this.game.keyboardController);
     this.canvas = document.getElementById('gameCanvas');
     this.ctx = this.canvas.getContext('2d');
     this.isHost = false;
@@ -72,14 +74,8 @@ class GameUI {
   
   // Private methods
   _setupEventListeners() {
-    // Handle mouse movements to control player
-    this.canvas.addEventListener('mousemove', (e) => {
-      const rect = this.canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      
-      this.game.movePlayer(x, y);
-    });
+    // Handle keyboard input for player movement
+    this._setupKeyboardControls();
     
     // Handle clicks to create game objects
     this.canvas.addEventListener('click', (e) => {
@@ -97,6 +93,58 @@ class GameUI {
     });
   }
   
+  _setupKeyboardControls() {
+    const moveSpeed = 5;
+    
+    // Verify keyboard controller is initialized
+    if (!this.game.keyboardController) {
+      console.error('KeyboardController not initialized!');
+      return;
+    }
+
+    // Add global key listeners to prevent default behavior
+    window.addEventListener('keydown', (e) => {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault();
+        console.log('Prevented default for:', e.key);
+      }
+    }, {capture: true});
+
+    // Make canvas focusable and style when focused
+    this.canvas.setAttribute('tabindex', '0');
+    this.canvas.style.outline = 'none';
+    this.canvas.addEventListener('focus', () => {
+      this.canvas.style.boxShadow = '0 0 10px #00ff00';
+      console.log('Canvas focused - ready for keyboard input');
+    });
+    this.canvas.addEventListener('blur', () => {
+      this.canvas.style.boxShadow = 'none';
+      console.log('Canvas blurred - keyboard input disabled');
+    });
+    this.canvas.focus();
+    
+    const gameLoop = () => {
+      const player = this.game.players[this.game.localPlayerId];
+      if (!player) return;
+      
+      let dx = 0;
+      let dy = 0;
+      
+      if (this.game.keyboardController.isPressed('ArrowUp')) dy -= moveSpeed;
+      if (this.game.keyboardController.isPressed('ArrowDown')) dy += moveSpeed;
+      if (this.game.keyboardController.isPressed('ArrowLeft')) dx -= moveSpeed;
+      if (this.game.keyboardController.isPressed('ArrowRight')) dx += moveSpeed;
+      
+      if (dx !== 0 || dy !== 0) {
+        this.game.movePlayer(player.x + dx, player.y + dy);
+      }
+      
+      requestAnimationFrame(gameLoop);
+    };
+    
+    gameLoop();
+  }
+
   _createUI() {
     // Create container for controls
     const controlsDiv = document.createElement('div');

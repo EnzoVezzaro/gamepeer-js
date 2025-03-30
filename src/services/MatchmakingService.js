@@ -1,14 +1,15 @@
-// MatchmakingService.js
+// Peer-to-Peer MatchmakingService using PeerJS
+import PeerConnectionManager from '../modules/PeerConnectionManager.js';
 
 class MatchmakingService {
   constructor(options = {}) {
     this.options = {
-      serverUrl: 'https://your-matchmaking-server.com', // Replace with actual server
       heartbeatInterval: 30000, // 30 seconds
       ...options
     };
     
-    this.availableRooms = [];
+    this.peerManager = new PeerConnectionManager();
+    this.availableRooms = new Map(); // Using Map for better performance
     this.ownRoom = null;
     this.heartbeatTimer = null;
     this.clientId = null;
@@ -17,15 +18,32 @@ class MatchmakingService {
       'roomsUpdated': [],
       'error': []
     };
+
+    // Setup peer data handler
+    this.peerManager.on('data', ({ data }) => {
+      if (data.type === 'roomUpdate') {
+        this._handleRoomUpdate(data.room);
+      }
+    });
   }
   
-  // Initialize the matchmaking service
+  // Initialize with PeerJS connection
   async init(clientId) {
     this.clientId = clientId;
     
     try {
-      // Initial fetch of available rooms
-      await this.refreshRooms();
+      await this.peerManager.createPeer(clientId);
+      
+      // Start listening for connections
+      this.peerManager.onConnection((conn) => {
+        // When a new peer connects, send them our room info if we're hosting
+        if (this.ownRoom) {
+          this.peerManager.send(conn.peer, {
+            type: 'roomUpdate',
+            room: this.ownRoom
+          });
+        }
+      });
       
       // Start heartbeat for keeping room list updated
       this._startHeartbeat();
@@ -40,7 +58,7 @@ class MatchmakingService {
     }
   }
   
-  // Register a new game room with the matchmaking service
+  // Register a new game room
   async registerRoom(roomId, metadata = {}) {
     if (!this.clientId) {
       throw new Error('Matchmaking service not initialized');
@@ -60,38 +78,25 @@ class MatchmakingService {
       ...metadata
     };
     
-    // Remove sensitive data
-    if (roomData.password) {
-      // Store password locally but don't send it to server
-      const password = roomData.password;
-      delete roomData.password;
-      this.ownRoom = { ...roomData, password };
-    } else {
-      this.ownRoom = roomData;
+    // Store password locally if provided
+    if (metadata.password) {
+      roomData.password = metadata.password;
     }
     
-    try {
-      const response = await fetch(`${this.options.serverUrl}/rooms`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(roomData)
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
-      }
-      
-      console.log('Room registered with matchmaking service');
-      return true;
-    } catch (err) {
-      this._triggerEvent('error', {
-        message: 'Failed to register room',
-        error: err
-      });
-      return false;
-    }
+    this.ownRoom = roomData;
+    this.availableRooms.set(roomId, roomData);
+    
+    // Broadcast room creation to all connected peers
+    this.peerManager.broadcast({
+      type: 'roomUpdate',
+      room: roomData
+    });
+    
+    this._triggerEvent('roomsUpdated', {
+      rooms: Array.from(this.availableRooms.values())
+    });
+    
+    return true;
   }
   
   // Update room information (player count, etc.)
@@ -100,97 +105,56 @@ class MatchmakingService {
       throw new Error('No room registered');
     }
     
-    const updatedData = {
-      ...updates,
-      id: this.ownRoom.id,
-      host: this.clientId
-    };
+    // Update local room data
+    this.ownRoom = { ...this.ownRoom, ...updates };
+    this.availableRooms.set(this.ownRoom.id, this.ownRoom);
     
-    try {
-      const response = await fetch(`${this.options.serverUrl}/rooms/${this.ownRoom.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(updatedData)
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
-      }
-      
-      // Update local room data
-      this.ownRoom = { ...this.ownRoom, ...updates };
-      
-      return true;
-    } catch (err) {
-      this._triggerEvent('error', {
-        message: 'Failed to update room',
-        error: err
-      });
-      return false;
-    }
+    // Broadcast update to all connected peers
+    this.peerManager.broadcast({
+      type: 'roomUpdate',
+      room: this.ownRoom
+    });
+    
+    this._triggerEvent('roomsUpdated', {
+      rooms: Array.from(this.availableRooms.values())
+    });
+    
+    return true;
   }
   
-  // Remove room from matchmaking service
+  // Remove room from matchmaking
   async unregisterRoom() {
     if (!this.ownRoom) {
       return true; // Nothing to unregister
     }
     
-    try {
-      const response = await fetch(`${this.options.serverUrl}/rooms/${this.ownRoom.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ host: this.clientId })
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
-      }
-      
-      this.ownRoom = null;
-      return true;
-    } catch (err) {
-      this._triggerEvent('error', {
-        message: 'Failed to unregister room',
-        error: err
-      });
-      return false;
-    }
+    // Remove from local list
+    this.availableRooms.delete(this.ownRoom.id);
+    
+    // Broadcast removal to all connected peers
+    this.peerManager.broadcast({
+      type: 'roomRemoval',
+      roomId: this.ownRoom.id
+    });
+    
+    this.ownRoom = null;
+    
+    this._triggerEvent('roomsUpdated', {
+      rooms: Array.from(this.availableRooms.values())
+    });
+    
+    return true;
   }
   
   // Get the latest list of available rooms
   async refreshRooms() {
-    try {
-      const response = await fetch(`${this.options.serverUrl}/rooms`);
-      
-      if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
-      }
-      
-      const data = await response.json();
-      this.availableRooms = data.rooms || [];
-      
-      this._triggerEvent('roomsUpdated', {
-        rooms: this.availableRooms
-      });
-      
-      return this.availableRooms;
-    } catch (err) {
-      this._triggerEvent('error', {
-        message: 'Failed to fetch available rooms',
-        error: err
-      });
-      return [];
-    }
+    // In P2P mode, we don't need to actively refresh since updates come via broadcasts
+    return Array.from(this.availableRooms.values());
   }
   
   // Find rooms matching specific criteria
   findRooms(filters = {}) {
-    return this.availableRooms.filter(room => {
+    return Array.from(this.availableRooms.values()).filter(room => {
       // Apply all filters
       for (const [key, value] of Object.entries(filters)) {
         if (room[key] !== value) {
@@ -203,7 +167,7 @@ class MatchmakingService {
   
   // Join a room with optional password
   async joinRoom(roomId, password = null) {
-    const room = this.availableRooms.find(r => r.id === roomId);
+    const room = this.availableRooms.get(roomId);
     
     if (!room) {
       throw new Error('Room not found');
@@ -213,33 +177,38 @@ class MatchmakingService {
       throw new Error('Password required');
     }
     
-    // We don't actually validate the password here - that would happen when
-    // connecting to the host using PeerJS. This is just for UI flow.
+    // In P2P mode, the actual connection happens through PeerConnectionManager
+    // This just returns the room info needed to connect
+    return {
+      id: room.id,
+      host: room.host,
+      password: password
+    };
+  }
+  
+  // Handle incoming room updates from peers
+  _handleRoomUpdate(roomData) {
+    // Don't process our own room updates
+    if (roomData.host === this.clientId) return;
     
-    // Update player count on the server
-    try {
-      await fetch(`${this.options.serverUrl}/rooms/${roomId}/join`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          clientId: this.clientId
-        })
-      });
-      
-      return {
-        id: room.id,
-        host: room.host,
-        password: password
-      };
-    } catch (err) {
-      this._triggerEvent('error', {
-        message: 'Failed to join room',
-        error: err
-      });
-      throw err;
-    }
+    // Update or add the room
+    this.availableRooms.set(roomData.id, roomData);
+    
+    this._triggerEvent('roomsUpdated', {
+      rooms: Array.from(this.availableRooms.values())
+    });
+  }
+  
+  // Handle room removal notifications
+  _handleRoomRemoval(roomId) {
+    // Don't process our own room
+    if (this.ownRoom?.id === roomId) return;
+    
+    this.availableRooms.delete(roomId);
+    
+    this._triggerEvent('roomsUpdated', {
+      rooms: Array.from(this.availableRooms.values())
+    });
   }
   
   // Register event handlers
@@ -269,6 +238,8 @@ class MatchmakingService {
     if (this.ownRoom) {
       this.unregisterRoom().catch(console.error);
     }
+    
+    this.peerManager.destroy();
   }
   
   // Private methods
@@ -278,13 +249,21 @@ class MatchmakingService {
     }
     
     this.heartbeatTimer = setInterval(() => {
-      // Refresh room list
-      this.refreshRooms().catch(console.error);
+      // In P2P mode, we don't need to actively refresh rooms
+      // but we can use this to clean up stale rooms
+      const now = Date.now();
+      const staleThreshold = 5 * 60 * 1000; // 5 minutes
       
-      // Update our own room data if we're hosting
-      if (this.ownRoom) {
-        this.updateRoom().catch(console.error);
+      for (const [roomId, room] of this.availableRooms) {
+        const roomAge = now - new Date(room.createdAt).getTime();
+        if (roomAge > staleThreshold && room.host !== this.clientId) {
+          this.availableRooms.delete(roomId);
+        }
       }
+      
+      this._triggerEvent('roomsUpdated', {
+        rooms: Array.from(this.availableRooms.values())
+      });
     }, this.options.heartbeatInterval);
   }
   
