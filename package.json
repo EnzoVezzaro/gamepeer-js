@@ -1,0 +1,30 @@
+{
+  "name": "gamepeer-sdk",
+  "version": "1.0.0",
+  "description": "A browser-to-browser P2P game SDK using PeerJS for direct connections between players. Provides networking, matchmaking and voice chat functionality for multiplayer browser games.",
+  "main": "GameUI.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EnzoVezzaro/gamepeer-sdk.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/EnzoVezzaro/gamepeer-sdk/issues"
+  },
+  "homepage": "https://github.com/EnzoVezzaro/gamepeer-sdk#readme",
+  "devDependencies": {
+    "@types/node": "^22.13.14",
+    "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "peerjs": "^1.5.4"
+  }
+}
