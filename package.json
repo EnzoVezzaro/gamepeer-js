@@ -33,7 +33,7 @@
     "@rollup/plugin-node-resolve": "^15.0.1",
     "@rollup/plugin-terser": "^0.4.3",
     "jsdoc": "^4.0.4",
-    "rollup": "^3.20.0"
+    "rollup": "^3.29.5"
   },
   "dependencies": {
     "clean-jsdoc-theme": "^4.3.0",
