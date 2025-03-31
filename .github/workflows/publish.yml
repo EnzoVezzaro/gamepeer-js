@@ -2,6 +2,9 @@ name: Publish Package to npm
 
 # Trigger this workflow whenever a new release is published
 on:
+  push:
+    branches:
+      - main
   release:
     types: [published]
 
