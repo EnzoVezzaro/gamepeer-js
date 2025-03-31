@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "gamepeer-js",
-  "version": "0.0.14",
+  "version": "0.0.15",
   "description": "Peer-to-peer gaming JS library with a ton of capabilities",
   "main": "dist/gamepeer-js.js",
   "module": "dist/gamepeer-js.esm.js",
