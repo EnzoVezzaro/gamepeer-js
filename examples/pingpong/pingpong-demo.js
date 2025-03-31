@@ -120,11 +120,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // Initialize matchmaking service
             matchmaking = game.getMatchmakingService();
             matchmaking.on('roomsUpdated', (data) => {
-                console.log('[roomsUpdated] updating matchmaking: ', data);
                 updateScoreDisplay();
             })
             // Register room with initial scores
-            console.log('registering match with room: ', roomId);
+            // console.log('registering match with room: ', roomId);
             
             matchmaking.registerRoom(roomId);
         } catch (err) {
@@ -137,7 +136,6 @@ document.addEventListener('DOMContentLoaded', () => {
         isHost = true;
         initGame();
         roomId = await game.hostGame();
-        console.log('saving roomId: ', roomId);
         roomInput.value = roomId;
         roomInput.disabled = true;
         
@@ -217,7 +215,7 @@ function gameLoop() {
             // Ball crossed left boundary (score for right player)
             matchmaking.updateScore(1, 1);
             resetBall();
-            console.log('Score for Player 2');
+            // console.log('Score for Player 2');
             updateScoreDisplay();
             return;
         }
@@ -227,7 +225,7 @@ function gameLoop() {
             // Ball crossed right boundary (score for left player)
             matchmaking.updateScore(0, 1);
             resetBall();
-            console.log('Score for Player 1');
+            // console.log('Score for Player 1');
             updateScoreDisplay();
             return;
         }
@@ -259,7 +257,7 @@ function gameLoop() {
 
     function updateScoreDisplay() {
         const scores = matchmaking.getScores();
-        console.log('getting score from service: ', scores);
+        // console.log('getting score from service: ', scores);
         player1Score.textContent = scores[0];
         player2Score.textContent = scores[1];
     }

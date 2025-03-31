@@ -1,5 +1,7 @@
 export default class KeyboardController {
-  constructor({ game, connectionManager, playerId, ...options }) {
+  constructor({ game, connectionManager, playerId, debug = false, ...options }) {
+    this.debug = debug;
+    this.log = debug ? console.log.bind(console, '[KeyboardController]') : () => {};
     this.customBindings = new Map();
     this.eventHandlers = {
       'up': [], 'down': [], 'left': [], 'right': [],
@@ -26,7 +28,7 @@ export default class KeyboardController {
     this._handleKeyUp = this._handleKeyUp.bind(this);
     this._handleIncomingData = this._handleIncomingData.bind(this);
 
-    console.log(`[KeyboardController] Initializing with playerId: ${this.playerId}`);
+    this.log(`Initializing with playerId: ${this.playerId}`);
 
     this._setupEventListeners();
   }
@@ -48,14 +50,14 @@ export default class KeyboardController {
         this.connectionManager.on('data', this._handleIncomingData);
       }
 
-      console.log('[KeyboardController] Event listeners registered successfully.');
+      this.log('Event listeners registered successfully.');
     } catch (err) {
-      this._triggerError('Failed to setup event listeners', err);
+      this._triggerError('Failed to setup event listeners', err); // Keep _triggerError for now
     }
   }
 
   _handleKeyDown(e) {
-    console.log(`[KeyboardController] Key Down: ${e.code}`);
+    this.log(`Key Down: ${e.code}`);
     const action = this._getActionForKey(e.code);
     if (!action) return;
 
@@ -68,14 +70,14 @@ export default class KeyboardController {
       altKey: e.altKey, ctrlKey: e.ctrlKey, shiftKey: e.shiftKey
     };
 
-    console.log(`[KeyboardController] Triggering action: ${action}`, data);
+    this.log(`Triggering action: ${action}`, data);
 
     // this._triggerEvent(action, data);
     // this._triggerEvent('keydown', data);
   }
 
   _handleKeyUp(e) {
-    console.log(`[KeyboardController] Key Up: ${e.code}`);
+    this.log(`Key Up: ${e.code}`);
     const action = this._getActionForKey(e.code);
     if (!action) return;
 
@@ -89,7 +91,7 @@ export default class KeyboardController {
       playerId: this.playerId
     };
 
-    console.log(`[KeyboardController] Releasing action: ${action}`, data);
+    this.log(`Releasing action: ${action}`, data);
 
     this._triggerEvent(action, data);
     // this._triggerEvent('keyup', data);
@@ -97,11 +99,11 @@ export default class KeyboardController {
 
   _handleIncomingData({ data }) {
     if (data.type === 'keyboardEvent') {
-      console.log(`[KeyboardController] Received keyboard event from peer:`, data);
-  
+      this.log(`Received keyboard event from peer:`, data);
+
       // Prevent rebroadcasting our own events
       if (data.data.playerId === this.playerId) {
-        console.log(`[KeyboardController] Ignoring self-broadcasted event: ${data.event}`);
+        this.log(`Ignoring self-broadcasted event: ${data.event}`);
         return;
       }
   
@@ -114,7 +116,7 @@ export default class KeyboardController {
   }
 
   _broadcast(eventName, data) {
-    console.log(`[KeyboardController] Broadcasting: ${eventName}`, data);
+    this.log(`Broadcasting: ${eventName}`, data);
   
     if (this.connectionManager && this.connectionManager.connections.size > 0) {
       const message = {
@@ -129,27 +131,28 @@ export default class KeyboardController {
   
       try {
         this.connectionManager.broadcast(message);
-        console.log(`[KeyboardController] Broadcast successful.`);
+        this.log(`Broadcast successful.`);
       } catch (err) {
-        this._triggerError('Broadcast failed', err);
+        this._triggerError('Broadcast failed', err); // Keep _triggerError
       }
     } else {
-      console.warn('[KeyboardController] No peers to broadcast to.');
+      this.log('No peers to broadcast to.'); // Changed from console.warn
     }
   }
 
   _triggerEvent(eventName, data) {
-    console.log(`[KeyboardController] Dispatching event: ${eventName}`, data);
+    this.log(`Dispatching event: ${eventName}`, data);
 
     if (this.eventHandlers[eventName]) {
       this.eventHandlers[eventName].forEach(handler => handler(data));
     }
     if (data.playerId === this.game.localPlayerId) {
-      console.log(`[_triggerEvent] Ignoring self-broadcasted event: ${data.event}`);
+      this.log(`Ignoring self-broadcasted event: ${data.event}`);
       this._broadcast(eventName, data);
     }
   }
 
+  // Keep _triggerError using console.error for actual errors
   _triggerError(message, error) {
     console.error(`[KeyboardController] Error: ${message}`, error);
     if (this.eventHandlers['error']) {
@@ -166,9 +169,9 @@ export default class KeyboardController {
         this.connectionManager.off('data', this._handleIncomingData);
       }
 
-      console.log('[KeyboardController] Destroyed successfully.');
+      this.log('Destroyed successfully.');
     } catch (err) {
-      console.error('[KeyboardController] Error during destroy:', err);
+      console.error('[KeyboardController] Error during destroy:', err); // Keep console.error
     }
   }
 }

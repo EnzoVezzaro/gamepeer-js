@@ -1,7 +1,9 @@
 // VoiceChatManager.js
 
 class VoiceChatManager {
-  constructor(options = {}) {
+  constructor({ debug = false, ...options } = {}) {
+    this.debug = debug;
+    this.log = debug ? console.log.bind(console, '[VoiceChatManager]') : () => {};
     this.options = {
       enableVideo: false,
       autoConnect: false,
@@ -90,7 +92,7 @@ class VoiceChatManager {
     
     // Check if we already have a connection to this peer
     if (this.connections.has(peerId)) {
-      console.log(`Already connected to ${peerId}`);
+      this.log(`Already connected to ${peerId}`);
       return;
     }
     
@@ -218,6 +220,7 @@ class VoiceChatManager {
         try {
           node.disconnect();
         } catch (e) {
+          // Keep console.error for internal errors
           console.error('Error disconnecting audio node:', e);
         }
       });
@@ -328,7 +331,7 @@ class VoiceChatManager {
     
     // Close audio context if it exists
     if (this.audioContext && this.audioContext.state !== 'closed') {
-      this.audioContext.close().catch(console.error);
+      this.audioContext.close().catch(console.error); // Keep console.error
     }
   }
   
@@ -368,7 +371,7 @@ class VoiceChatManager {
   }
   
   _handleIncomingCall(call) {
-    console.log(`Incoming call from ${call.peer}`);
+    this.log(`Incoming call from ${call.peer}`);
     
     // We need a local stream to answer the call
     const answerCall = async () => {
@@ -376,6 +379,7 @@ class VoiceChatManager {
         try {
           await this._getLocalStream();
         } catch (err) {
+          // Keep console.error
           console.error('Failed to get local stream for answering call', err);
           return;
         }
@@ -393,7 +397,7 @@ class VoiceChatManager {
   _setupCallEvents(call) {
     // Handle stream from the remote peer
     call.on('stream', (remoteStream) => {
-      console.log(`Received stream from ${call.peer}`);
+      this.log(`Received stream from ${call.peer}`);
       this.remoteStreams.set(call.peer, remoteStream);
       
       // Create audio/video elements
@@ -407,7 +411,7 @@ class VoiceChatManager {
     
     // Handle call end
     call.on('close', () => {
-      console.log(`Call with ${call.peer} ended`);
+      this.log(`Call with ${call.peer} ended`);
       this.connections.delete(call.peer);
       this.remoteStreams.delete(call.peer);
       
@@ -421,6 +425,7 @@ class VoiceChatManager {
     
     // Handle errors
     call.on('error', (err) => {
+      // Keep console.error
       console.error(`Call error with ${call.peer}:`, err);
       this._triggerEvent('error', {
         message: `Call error with ${call.peer}`,
@@ -501,6 +506,7 @@ class VoiceChatManager {
         try {
           handler(data);
         } catch (err) {
+          // Keep console.error
           console.error('Error in event handler:', err);
         }
       });

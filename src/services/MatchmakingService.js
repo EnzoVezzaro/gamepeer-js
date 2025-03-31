@@ -2,15 +2,17 @@
 import PeerConnectionManager from '../modules/PeerConnectionManager.js';
  
 class MatchmakingService {
-  constructor({ game, connectionManager, playerId, ...options }) {
+  constructor({ game, connectionManager, playerId, debug = false, ...options }) {
     this.options = {
       heartbeatInterval: 30000, // 30 seconds
       ...options
     };
+    this.debug = debug;
+    this.log = debug ? console.log.bind(console, '[MatchmakingService]') : () => {};
     this.scores = [0];
     this.players = 1;
 
-    console.log('options match: ', options);
+    this.log('options match: ', options);
     
     this.gameName = options.gameName || 'Untitled Game';
     this.gameMode = options.gameMode || 'standard';
@@ -49,7 +51,7 @@ class MatchmakingService {
   // Initialize with PeerJS connection
   async _init() {
     try {
-      console.log('[_init] listening peers: ', this.clientId);
+      this.log('[_init] listening peers: ', this.clientId);
       await this.connectionManager.createPeer(this.clientId);
       this.addPlayer();
 
@@ -94,7 +96,7 @@ class MatchmakingService {
       scores: this.scores
     };
 
-    console.log('initializing match: ', roomData);
+    this.log('initializing match: ', roomData);
     
     // Store password locally if provided
     if (this.password) {
@@ -199,12 +201,14 @@ class MatchmakingService {
   }
 
   _handleIncomingData({ data }) {
+    // Note: This log seems related to KeyboardController, might need adjustment there too.
+    // For now, applying the MatchmakingService logger.
     if (data.type === 'keyboardEvent') {
-      console.log(`[KeyboardController] Received keyboard event from peer:`, data);
-  
+      this.log(`Received keyboard event from peer:`, data);
+
       // Prevent rebroadcasting our own events
       if (data.data.playerId === this.playerId) {
-        console.log(`[KeyboardController] Ignoring self-broadcasted event: ${data.event}`);
+        this.log(`Ignoring self-broadcasted event: ${data.event}`);
         return;
       }
   
@@ -304,15 +308,15 @@ class MatchmakingService {
           handler(data);
           this._broadcast(event, data);
         } catch (err) {
-          console.error('Error in event handler:', err);
+          this.log('Error in event handler:', err); // Changed from console.error
         }
       });
     }
   }
 
   _broadcast(eventName, data) {
-    console.log(`[MatchmakingService] Broadcasting: ${eventName}`, data);
-    console.log(`[MatchmakingService] Broadcasting connectionManager: `, this.connectionManager);
+    this.log(`Broadcasting: ${eventName}`, data);
+    this.log(`Broadcasting connectionManager: `, this.connectionManager);
     if (this.connectionManager && this.connectionManager.connections.size > 0) {
       const message = {
         type: 'roomsUpdated',
@@ -326,12 +330,12 @@ class MatchmakingService {
   
       try {
         this.connectionManager.broadcast(message);
-        console.log(`[MatchmakingService] Broadcast successful.`);
+        this.log(`Broadcast successful.`);
       } catch (err) {
-        this._triggerError('Broadcast failed', err);
+        this._triggerError('Broadcast failed', err); // Assuming _triggerError handles logging/errors appropriately
       }
     } else {
-      console.warn('[MatchmakingService] No peers to broadcast to.');
+      this.log('No peers to broadcast to.'); // Changed from console.warn
     }
   }
   
@@ -339,7 +343,7 @@ class MatchmakingService {
   addPlayer() {
     this.players++;
     this.scores.push(0); // Initialize new player's score to 0
-    console.log('[addPlayer] players:', this.players, 'scores:', this.scores);
+    this.log('[addPlayer] players:', this.players, 'scores:', this.scores);
     // Update room with new player count and scores
     this.updateRoom({ 
       players: this.players,
@@ -350,7 +354,7 @@ class MatchmakingService {
 
   // Update a player's score and broadcast the update
   updateScore(playerIndex, increment = 1) {
-    console.log('[updateScore] start:', playerIndex, increment, 'current scores:', this.scores);
+    this.log('[updateScore] start:', playerIndex, increment, 'current scores:', this.scores);
     
     // Ensure scores array is properly initialized
     if (!this.scores || this.scores.length < this.players) {
@@ -369,11 +373,11 @@ class MatchmakingService {
         lastUpdate: Date.now() 
       });
       
-      console.log('[updateScore] success:', this.scores);
+      this.log('[updateScore] success:', this.scores);
       return true;
     }
     
-    console.error('[updateScore] invalid playerIndex:', playerIndex);
+    this.log('[updateScore] invalid playerIndex:', playerIndex); // Changed from console.error
     return false;
   }
 

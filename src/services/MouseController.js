@@ -1,6 +1,8 @@
 // MouseController.js - Tracks and broadcasts mouse input
 export default class MouseController {
-  constructor(options = {}) {
+  constructor({ debug = false, ...options } = {}) {
+    this.debug = debug;
+    this.log = debug ? console.log.bind(console, '[MouseController]') : () => {};
     this.connectionManager = options.connectionManager;
     this.x = 0;
     this.y = 0;
@@ -158,7 +160,9 @@ export default class MouseController {
   }
 
   _triggerError(message, error) {
-    this.eventHandlers['error']?.forEach(handler => 
+    // Log the error if debug mode is enabled
+    this.log(`Error: ${message}`, error);
+    this.eventHandlers['error']?.forEach(handler =>
       handler({ message, error })
     );
   }
