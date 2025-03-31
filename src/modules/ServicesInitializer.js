@@ -39,7 +39,12 @@ export default class ServicesInitializer {
     }
 
     if (this.game.options.useMatchmaking) {
-      this.matchmaking = new MatchmakingService(this.game.options.matchmakingOptions);
+      this.matchmaking = new MatchmakingService({
+        connectionManager: this.game.connectionManager,
+        ...this.game.options.matchmakingOptions,
+        game: this.game,
+        playerId: this.game.localPlayerId
+      });
       this.matchmaking.on('roomsUpdated', (rooms) => {
         this.game._triggerEvent('roomsUpdated', rooms);
       });

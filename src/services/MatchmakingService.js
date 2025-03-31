@@ -1,8 +1,8 @@
 // Peer-to-Peer MatchmakingService using PeerJS
 import PeerConnectionManager from '../modules/PeerConnectionManager.js';
-
+ 
 class MatchmakingService {
-  constructor(options = {}) {
+  constructor({ game, connectionManager, playerId, ...options }) {
     this.options = {
       heartbeatInterval: 30000, // 30 seconds
       ...options
@@ -12,7 +12,12 @@ class MatchmakingService {
     this.availableRooms = new Map(); // Using Map for better performance
     this.ownRoom = null;
     this.heartbeatTimer = null;
-    this.clientId = null;
+    this.clientId = playerId;
+    this.registerRoom = this.registerRoom;
+    this.updateRoom = this.updateRoom;
+    this.connectionManager = connectionManager;
+
+    this._handleIncomingData = this._handleIncomingData.bind(this);
     
     this.eventHandlers = {
       'roomsUpdated': [],
@@ -25,18 +30,19 @@ class MatchmakingService {
         this._handleRoomUpdate(data.room);
       }
     });
+
+    this._init();
   }
   
   // Initialize with PeerJS connection
-  async init(clientId) {
-    this.clientId = clientId;
-    
+  async _init() {
     try {
-      await this.peerManager.createPeer(clientId);
+      await this.peerManager.createPeer(this.clientId);
       
       // Start listening for connections
       this.peerManager.onConnection((conn) => {
         // When a new peer connects, send them our room info if we're hosting
+        console.log('[_init] new peer connected: ', conn);
         if (this.ownRoom) {
           this.peerManager.send(conn.peer, {
             type: 'roomUpdate',
@@ -44,6 +50,10 @@ class MatchmakingService {
           });
         }
       });
+
+      if (this.connectionManager) {
+        this.connectionManager.on('data', this._handleIncomingData);
+      }
       
       // Start heartbeat for keeping room list updated
       this._startHeartbeat();
@@ -56,7 +66,7 @@ class MatchmakingService {
       });
       return false;
     }
-  }
+  } 
   
   // Register a new game room
   async registerRoom(roomId, metadata = {}) {
@@ -85,12 +95,6 @@ class MatchmakingService {
     
     this.ownRoom = roomData;
     this.availableRooms.set(roomId, roomData);
-    
-    // Broadcast room creation to all connected peers
-    this.peerManager.broadcast({
-      type: 'roomUpdate',
-      room: roomData
-    });
     
     this._triggerEvent('roomsUpdated', {
       rooms: Array.from(this.availableRooms.values())
@@ -185,6 +189,20 @@ class MatchmakingService {
       password: password
     };
   }
+
+  _handleIncomingData({ data }) {
+    if (data.type === 'keyboardEvent') {
+      console.log(`[KeyboardController] Received keyboard event from peer:`, data);
+  
+      // Prevent rebroadcasting our own events
+      if (data.data.playerId === this.playerId) {
+        console.log(`[KeyboardController] Ignoring self-broadcasted event: ${data.event}`);
+        return;
+      }
+  
+      this._triggerEvent(data.event, data.data);
+    }
+  }
   
   // Handle incoming room updates from peers
   _handleRoomUpdate(roomData) {
@@ -210,12 +228,12 @@ class MatchmakingService {
       rooms: Array.from(this.availableRooms.values())
     });
   }
-  
-  // Register event handlers
-  on(event, callback) {
-    if (this.eventHandlers[event]) {
-      this.eventHandlers[event].push(callback);
+
+  on(event, handler) {
+    if (!this.eventHandlers[event]) {
+      this.eventHandlers[event] = [];
     }
+    this.eventHandlers[event].push(handler);
     return this;
   }
   
@@ -237,6 +255,10 @@ class MatchmakingService {
     // Unregister room if we were hosting
     if (this.ownRoom) {
       this.unregisterRoom().catch(console.error);
+    }
+
+    if (this.connectionManager) {
+      this.connectionManager.off('data', this._handleIncomingData);
     }
     
     this.peerManager.destroy();
@@ -272,10 +294,36 @@ class MatchmakingService {
       this.eventHandlers[event].forEach(handler => {
         try {
           handler(data);
+          this._broadcast(event, data);
         } catch (err) {
           console.error('Error in event handler:', err);
         }
       });
+    }
+  }
+
+  _broadcast(eventName, data) {
+    console.log(`[MatchmakingService] Broadcasting: ${eventName}`, data);
+    console.log(`[MatchmakingService] Broadcasting connectionManager: `, this.connectionManager);
+    if (this.connectionManager && this.connectionManager.connections.size > 0) {
+      const message = {
+        type: 'roomsUpdated',
+        event: eventName,
+        data: {
+          ...data,
+          playerId: this.playerId,
+          timestamp: Date.now(),
+        },
+      };
+  
+      try {
+        this.connectionManager.broadcast(message);
+        console.log(`[MatchmakingService] Broadcast successful.`);
+      } catch (err) {
+        this._triggerError('Broadcast failed', err);
+      }
+    } else {
+      console.warn('[MatchmakingService] No peers to broadcast to.');
     }
   }
   

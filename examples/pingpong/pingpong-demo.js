@@ -28,16 +28,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let isHost = false;
     let keyboard = null;
     let game = null;
+    let matchmaking = null;
 
     // Initialize game with matchmaking
     function initGame() {
+        const playerId = `player-${Math.random().toString(36).substr(2, 4)}`;
         game = new GamePeerJS({
             debug: true,
             useMatchmaking: true,
             useKeyboardController: true,
-            localPlayerId: `player-${Math.random().toString(36).substr(2, 4)}`
+            localPlayerId: playerId
         });
-
         // Handle game state updates
         game.on('stateUpdate', (data) => {
             if (data.ball) {
@@ -48,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (data.scores) {
                 scores = data.scores;
-                updateScoreDisplay();
+                // updateScoreDisplay();
             }
             if (data.paddles) {
                 if (isHost) {
@@ -70,52 +71,71 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-        function initKeyboard() {
-            try {
-                keyboard = game.getKeyboardController();
-                if (isHost) {
-                    // Host controls left paddle locally, receives right paddle updates
-                    keyboard.on('up', (data) => {
-                        if (data && data.playerId === game.localPlayerId) {
-                            leftPaddleY = Math.max(0, leftPaddleY - PADDLE_SPEED);
-                        } else {
-                            rightPaddleY = Math.max(0, rightPaddleY - PADDLE_SPEED);
-                        }
-                    });
-                    keyboard.on('down', (data) => {
-                        if (data && data.playerId === game.localPlayerId) {
-                            leftPaddleY = Math.min(canvas.height - PADDLE_HEIGHT, leftPaddleY + PADDLE_SPEED);
-                        } else {
-                            rightPaddleY = Math.min(canvas.height - PADDLE_HEIGHT, rightPaddleY + PADDLE_SPEED);
-                        }
-                    });
-                } else {
-                    // Client controls right paddle locally, receives left paddle updates
-                    keyboard.on('up', (data) => {
-                        if (data && data.playerId === game.localPlayerId) {
-                            rightPaddleY = Math.max(0, rightPaddleY - PADDLE_SPEED);
-                        } else {
-                            leftPaddleY = Math.max(0, leftPaddleY - PADDLE_SPEED);
-                        }
-                    });
-                    keyboard.on('down', (data) => {
-                        if (data && data.playerId === game.localPlayerId) {
-                            rightPaddleY = Math.min(canvas.height - PADDLE_HEIGHT, rightPaddleY + PADDLE_SPEED);
-                        } else {
-                            leftPaddleY = Math.min(canvas.height - PADDLE_HEIGHT, leftPaddleY + PADDLE_SPEED);
-                        }
-                    });
-                }
-            } catch (err) {
-                console.error('Keyboard init error:', err);
+    function initKeyboard() {
+        try {
+            keyboard = game.getKeyboardController();
+            if (isHost) {
+                // Host controls left paddle locally, receives right paddle updates
+                keyboard.on('up', (data) => {
+                    if (data && data.playerId === game.localPlayerId) {
+                        leftPaddleY = Math.max(0, leftPaddleY - PADDLE_SPEED);
+                    } else {
+                        rightPaddleY = Math.max(0, rightPaddleY - PADDLE_SPEED);
+                    }
+                });
+                keyboard.on('down', (data) => {
+                    if (data && data.playerId === game.localPlayerId) {
+                        leftPaddleY = Math.min(canvas.height - PADDLE_HEIGHT, leftPaddleY + PADDLE_SPEED);
+                    } else {
+                        rightPaddleY = Math.min(canvas.height - PADDLE_HEIGHT, rightPaddleY + PADDLE_SPEED);
+                    }
+                });
+            } else {
+                // Client controls right paddle locally, receives left paddle updates
+                keyboard.on('up', (data) => {
+                    if (data && data.playerId === game.localPlayerId) {
+                        rightPaddleY = Math.max(0, rightPaddleY - PADDLE_SPEED);
+                    } else {
+                        leftPaddleY = Math.max(0, leftPaddleY - PADDLE_SPEED);
+                    }
+                });
+                keyboard.on('down', (data) => {
+                    if (data && data.playerId === game.localPlayerId) {
+                        rightPaddleY = Math.min(canvas.height - PADDLE_HEIGHT, rightPaddleY + PADDLE_SPEED);
+                    } else {
+                        leftPaddleY = Math.min(canvas.height - PADDLE_HEIGHT, leftPaddleY + PADDLE_SPEED);
+                    }
+                });
             }
+        } catch (err) {
+            console.error('Keyboard init error:', err);
         }
+    }
+
+    function initMatch() {
+        try {
+            // Initialize matchmaking service
+            matchmaking = game.getMatchmakingService();
+            this.matchmaking = matchmaking;
+            matchmaking.on('roomsUpdated', (data) => {
+                console.log('[roomsUpdated] updating matchmaking: ', data);
+                this.scores = data.rooms[0].scores;
+            })
+            // Register room with initial scores
+            matchmaking.registerRoom(this.roomId, {
+                scores: [0, 0]
+            });
+        } catch (err) {
+            console.error('Keyboard init error:', err);
+        }
+    }
 
     // Host game
     hostBtn.onclick = async () => {
         isHost = true;
         initGame();
-        const roomId = await game.hostGame();
+        const roomIdPlayer = await game.hostGame();
+        this.roomId = roomIdPlayer;
         roomInput.value = roomId;
         roomInput.disabled = true;
         
@@ -132,6 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Initialize keyboard after room is ready
         initKeyboard();
+        initMatch();
     };
 
     // Join game
@@ -143,6 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Initialize keyboard after joining
         initKeyboard();
+        initMatch();
     };
 
     // Game loop
@@ -171,7 +193,7 @@ function gameLoop() {
         ballX = PADDLE_WIDTH; // Keep ball from getting stuck
         ballSpeedX = Math.abs(ballSpeedX) * 1.1; // Ensure ball goes to the right
         paddleCollision = true;
-        console.log('Collision with left paddle:', ballX, ballY);
+        // console.log('Collision with left paddle:', ballX, ballY);
     }
 
     // Ball collision with right paddle
@@ -183,7 +205,7 @@ function gameLoop() {
         ballX = canvas.width - PADDLE_WIDTH - BALL_SIZE; // Move ball just outside of the paddle
         ballSpeedX = -Math.abs(ballSpeedX) * 1.1; // Ensure ball bounces left
         paddleCollision = true;
-        console.log('Collision with right paddle:', ballX, ballY);
+        // console.log('Collision with right paddle:', ballX, ballY);
     }
 
     // Only check for scoring if no paddle collision occurred
@@ -194,7 +216,8 @@ function gameLoop() {
             scores[1]++;
             resetBall();
             console.log('Score for Player 2');
-            updateScoreDisplay();
+            // updateScoreDisplay();
+            this.matchmaking.updateRoom({ scores });
             return;
         }
         
@@ -204,7 +227,8 @@ function gameLoop() {
             scores[0]++;
             resetBall();
             console.log('Score for Player 1');
-            updateScoreDisplay();
+            // updateScoreDisplay();
+            matchmaking.updateRoom({ scores });
             return;
         }
     }
@@ -213,7 +237,6 @@ function gameLoop() {
     if (isHost) {
         game.broadcastEvent('stateUpdate', {
             ball: { x: ballX, y: ballY, speedX: ballSpeedX, speedY: ballSpeedY },
-            scores: scores,
             paddles: { left: leftPaddleY, right: rightPaddleY }
         });
     } else {
@@ -237,14 +260,6 @@ function gameLoop() {
     function updateScoreDisplay() {
         player1Score.textContent = scores[0];
         player2Score.textContent = scores[1];
-    }
-
-    function movePaddle(dy) {
-        if (isHost) {
-            leftPaddleY = Math.max(0, Math.min(canvas.height - PADDLE_HEIGHT, leftPaddleY + dy));
-        } else {
-            rightPaddleY = Math.max(0, Math.min(canvas.height - PADDLE_HEIGHT, rightPaddleY + dy));
-        }
     }
 
     function draw() {
