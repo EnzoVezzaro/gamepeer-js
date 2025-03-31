@@ -16,10 +16,11 @@ jobs:
           registry-url: https://registry.npmjs.org/
       - name: Bump version and update package.json
         run: |
-          npm version patch
           git config --global user.email "actions@github.com"
           git config --global user.name "GitHub Actions"
-          git commit -am "Bumped version in package.json"
+          npm version patch
+          git add package.json package-lock.json
+          git commit -m "Bumped version in package.json"
           git push
       - name: Publish to npm
         run: npm publish --access public
