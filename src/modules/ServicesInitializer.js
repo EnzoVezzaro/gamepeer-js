@@ -20,6 +20,7 @@ export default class ServicesInitializer {
     // Initialize all enabled services
     if (this.game.options.useKeyboardController) {
       this.keyboardController = new KeyboardController({
+        game: this.game,
         connectionManager: this.game.connectionManager,
         playerId: this.game.localPlayerId,
         ...this.game.options.keyboardOptions

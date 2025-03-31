@@ -82,20 +82,25 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('Keyboard controller instance:', keyboard);
     // Set up keyboard controls
     keyboard.on('up', (data) => { 
+      console.log('receiving data: ', data);
       if (!data || data.playerId !== game.localPlayerId) {
         if (direction !== 'down') nextDirection = 'up';
+        updatePosition(data, nextDirection);
       }
     }).on('down', (data) => { 
       if (!data || data.playerId !== game.localPlayerId) {
         if (direction !== 'up') nextDirection = 'down';
+        updatePosition(data, nextDirection);
       }
     }).on('left', (data) => { 
       if (!data || data.playerId !== game.localPlayerId) {
         if (direction !== 'right') nextDirection = 'left';
+        updatePosition(data, nextDirection);
       }
     }).on('right', (data) => { 
       if (!data || data.playerId !== game.localPlayerId) {
         if (direction !== 'left') nextDirection = 'right';
+        updatePosition(data, nextDirection);
       }
     });
   }
@@ -134,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (head.y >= GRID_SIZE) head.y = 0;
     if (head.y < 0) head.y = GRID_SIZE - 1;
     
-    snake.unshift(head);
+    snake.unshift(head); 
     snake.pop();
   }
 
@@ -180,6 +185,11 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateScore() {
     scoreDisplay.textContent = `Score: ${score}`;
     game.broadcastEvent('scoreUpdate', { score });
+  }
+
+  function updatePosition(data, nextDirection) {
+    // scoreDisplay.textContent = `Change Direction Update: ${data}`;
+    // game.broadcastEvent(nextDirection, { ...data, playerId: game.localPlayerId });
   }
 
   function draw() {

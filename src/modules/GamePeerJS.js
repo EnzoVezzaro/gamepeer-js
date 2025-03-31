@@ -289,9 +289,6 @@ class GamePeerJS {
       if (data?.type === 'customEvent') {
         this._triggerEvent(data.eventName, data.data);
       }
-      else if (data?.type === 'keyboardEvent') {
-        this._triggerEvent(data.event, data.data);
-      }
       else if (data?.type === 'stateUpdate' && data?.objectId) {
         // this.log(`Received state update for ${data.objectId}`);
         

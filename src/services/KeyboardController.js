@@ -1,104 +1,113 @@
-// KeyboardController.js - Tracks keyboard input states
-
 export default class KeyboardController {
-  constructor(options = {}) {
+  constructor({ game, connectionManager, playerId, ...options }) {
     this.customBindings = new Map();
     this.eventHandlers = {
-      'keydown': [],
-      'keyup': [],
+      'up': [], 'down': [], 'left': [], 'right': [],
+      'space': [], 'enter': [], 'keydown': [], 'keyup': [],
       'error': []
     };
-    this.playerId = options.playerId;
-    this.connectionManager = options.connectionManager;
+    this.game = game;
+    this.connectionManager = connectionManager;
+    this.playerId = playerId;
 
-    // Standard key bindings
+    console.log('getting this: ', this);
+
     this.standardKeys = {
-      'ArrowUp': 'up',
-      'ArrowDown': 'down',
-      'ArrowLeft': 'left',
-      'ArrowRight': 'right',
-      ' ': 'space',
-      'Enter': 'enter'
+      'ArrowUp': 'up', 'ArrowDown': 'down', 'ArrowLeft': 'left',
+      'ArrowRight': 'right', ' ': 'space', 'Enter': 'enter'
     };
 
-    // Set up custom bindings from options
     if (options.keybindings) {
       options.keybindings.forEach(([eventName, keyCode]) => {
         this.customBindings.set(keyCode, eventName);
       });
     }
 
-    // initializing listeners
-    console.log('initializing listeners keyboard service: ', this);
+    // Bind event handlers
+    this._handleKeyDown = this._handleKeyDown.bind(this);
+    this._handleKeyUp = this._handleKeyUp.bind(this);
+    this._handleIncomingData = this._handleIncomingData.bind(this);
+
+    console.log(`[KeyboardController] Initializing with playerId: ${this.playerId}`);
+
     this._setupEventListeners();
   }
 
-  // Register event handlers
   on(event, handler) {
     if (!this.eventHandlers[event]) {
       this.eventHandlers[event] = [];
     }
     this.eventHandlers[event].push(handler);
-    return this; // Enable method chaining
+    return this;
   }
 
-  // Private methods
   _setupEventListeners() {
     try {
-      // Use capturing phase to reliably intercept arrow keys
-      console.log('[_setupEventListeners]');
-      window.addEventListener('keydown', this._handleKeyDown.bind(this), true);
-      window.addEventListener('keyup', this._handleKeyUp.bind(this));
+      window.addEventListener('keydown', this._handleKeyDown, true);
+      window.addEventListener('keyup', this._handleKeyUp, true);
+
+      if (this.connectionManager) {
+        this.connectionManager.on('data', this._handleIncomingData);
+      }
+
+      console.log('[KeyboardController] Event listeners registered successfully.');
     } catch (err) {
       this._triggerError('Failed to setup event listeners', err);
     }
   }
 
   _handleKeyDown(e) {
-    try {
-      console.log('press key: ', e);
-      const action = this._getActionForKey(e.code);
-      if (!action) return;
+    console.log(`[KeyboardController] Key Down: ${e.code}`);
+    const action = this._getActionForKey(e.code);
+    if (!action) return;
 
-      // Block arrow keys from scrolling
-      console.log('press key: 1');
-      if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        return false;
-      }
-      console.log('press key: 2');
-      this._triggerEvent(action, {
-        action: 'down',
-        event: e
-      });
-      console.log('press key: 3');
-      this._broadcast(action, {
-        action: 'down',
-        event: e
-      });
-      console.log('press key: 4');
-    } catch (err) {
-      this._triggerError('Key down error', err);
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+      e.preventDefault();
     }
+
+    const data = {
+      action: 'down', key: e.code, keyName: action,
+      altKey: e.altKey, ctrlKey: e.ctrlKey, shiftKey: e.shiftKey
+    };
+
+    console.log(`[KeyboardController] Triggering action: ${action}`, data);
+
+    // this._triggerEvent(action, data);
+    // this._triggerEvent('keydown', data);
   }
 
   _handleKeyUp(e) {
-    console.log('press key: ', e);
-    try {
-      const action = this._getActionForKey(e.code);
-      if (!action) return;
+    console.log(`[KeyboardController] Key Up: ${e.code}`);
+    const action = this._getActionForKey(e.code);
+    if (!action) return;
 
-      this._triggerEvent(action, {
-        action: 'up',
-        event: e
-      });
-      this._broadcast(action, {
-        action: 'up',
-        event: e
-      });
-    } catch (err) {
-      this._triggerError('Key up error', err);
+    const data = {
+      action: 'up', 
+      key: e.code, 
+      keyName: action,
+      altKey: e.altKey, 
+      ctrlKey: e.ctrlKey, 
+      shiftKey: e.shiftKey,
+      playerId: this.playerId
+    };
+
+    console.log(`[KeyboardController] Releasing action: ${action}`, data);
+
+    this._triggerEvent(action, data);
+    // this._triggerEvent('keyup', data);
+  }
+
+  _handleIncomingData({ data }) {
+    if (data.type === 'keyboardEvent') {
+      console.log(`[KeyboardController] Received keyboard event from peer:`, data);
+  
+      // Prevent rebroadcasting our own events
+      if (data.data.playerId === this.playerId) {
+        console.log(`[KeyboardController] Ignoring self-broadcasted event: ${data.event}`);
+        return;
+      }
+  
+      this._triggerEvent(data.event, data.data);
     }
   }
 
@@ -106,32 +115,62 @@ export default class KeyboardController {
     return this.customBindings.get(keyCode) || this.standardKeys[keyCode];
   }
 
-  _broadcast(event, data) {
-    console.log('press key: _broadcast', event, data, this.connectionManager);
-    if (this.connectionManager) {
-      this.connectionManager.broadcast({
-        type: event,
-        event,
+  _broadcast(eventName, data) {
+    console.log(`[KeyboardController] Broadcasting: ${eventName}`, data);
+  
+    if (this.connectionManager && this.connectionManager.connections.size > 0) {
+      const message = {
+        type: 'keyboardEvent',
+        event: eventName,
         data: {
           ...data,
           playerId: this.playerId,
-          timestamp: Date.now()
-        }
-      });
+          timestamp: Date.now(),
+        },
+      };
+  
+      try {
+        this.connectionManager.broadcast(message);
+        console.log(`[KeyboardController] Broadcast successful.`);
+      } catch (err) {
+        this._triggerError('Broadcast failed', err);
+      }
+    } else {
+      console.warn('[KeyboardController] No peers to broadcast to.');
     }
   }
 
-  _triggerEvent(event, data) {
-    console.log('press key: _triggerEvent', event, data);
-    this.eventHandlers[event]?.forEach(handler => handler(data));
+  _triggerEvent(eventName, data) {
+    console.log(`[KeyboardController] Dispatching event: ${eventName}`, data);
+
+    if (this.eventHandlers[eventName]) {
+      this.eventHandlers[eventName].forEach(handler => handler(data));
+    }
+    if (data.playerId === this.game.localPlayerId) {
+      console.log(`[_triggerEvent] Ignoring self-broadcasted event: ${data.event}`);
+      this._broadcast(eventName, data);
+    }
   }
 
   _triggerError(message, error) {
-    this.eventHandlers['error']?.forEach(handler => handler({message, error}));
+    console.error(`[KeyboardController] Error: ${message}`, error);
+    if (this.eventHandlers['error']) {
+      this.eventHandlers['error'].forEach(handler => handler({ message, error }));
+    }
   }
 
   destroy() {
-    window.removeEventListener('keydown', this._handleKeyDown, true);
-    window.removeEventListener('keyup', this._handleKeyUp);
+    try {
+      window.removeEventListener('keydown', this._handleKeyDown, true);
+      window.removeEventListener('keyup', this._handleKeyUp, true);
+
+      if (this.connectionManager) {
+        this.connectionManager.off('data', this._handleIncomingData);
+      }
+
+      console.log('[KeyboardController] Destroyed successfully.');
+    } catch (err) {
+      console.error('[KeyboardController] Error during destroy:', err);
+    }
   }
 }
