@@ -1,5 +1,7 @@
 # GamePeerJS - Browser-to-Browser P2P Game SDK
 
+📖 [Documentation](https://gamepeerjs-docs.netlify.app/)
+
 GamePeerJS enables real-time multiplayer gaming directly between browsers using WebRTC. It provides:
 
 - Peer-to-peer networking
