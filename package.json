@@ -1,10 +1,10 @@
 {
   "type": "module",
-  "name": "gamepeer-sdk",
-  "version": "1.0.0",
-  "description": "Peer-to-peer gaming SDK with matchmaking capabilities",
-  "main": "dist/gamepeer-sdk.js",
-  "module": "dist/gamepeer-sdk.esm.js",
+  "name": "gamepeer-js",
+  "version": "0.0.10",
+  "description": "Peer-to-peer gaming JS library with a ton of capabilities",
+  "main": "dist/gamepeer-js.js",
+  "module": "dist/gamepeer-js.esm.js",
   "files": [
     "dist"
   ],

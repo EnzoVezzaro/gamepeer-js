@@ -4,6 +4,8 @@ node_modules/
 # Build output
 dist/
 build/
+tests/
+docs/
 
 # IDE specific files
 .vscode/
@@ -18,6 +20,9 @@ build/
 # Log files
 *.log
 logs/
+
+# Git
+.git
 
 # System files
 .DS_Store
@@ -41,5 +46,3 @@ logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
-docs
