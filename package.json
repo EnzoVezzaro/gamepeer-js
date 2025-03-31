@@ -11,7 +11,8 @@
   "scripts": {
     "build": "rollup -c",
     "dev": "rollup -c -w",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "docs": "npx jsdoc -c jsdoc.json && echo '/*    /index.html   200' > docs/_redirects"
   },
   "keywords": [
     "webrtc",
@@ -25,10 +26,12 @@
   "devDependencies": {
     "@rollup/plugin-commonjs": "^24.0.0",
     "@rollup/plugin-node-resolve": "^15.0.1",
-    "rollup": "^3.20.0",
-    "@rollup/plugin-terser": "^0.4.3"
+    "@rollup/plugin-terser": "^0.4.3",
+    "jsdoc": "^4.0.4",
+    "rollup": "^3.20.0"
   },
   "dependencies": {
+    "clean-jsdoc-theme": "^4.3.0",
     "peerjs": "^1.4.7"
   }
 }

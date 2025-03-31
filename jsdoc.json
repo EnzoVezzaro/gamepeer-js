@@ -1,0 +1,12 @@
+{
+  "source": {
+    "include": ["src"],
+    "exclude": ["node_modules", "test"]
+  },
+  "opts": {
+    "destination": "./docs", 
+    "recurse": true, 
+    "template": "node_modules/clean-jsdoc-theme",
+    "readme": "./README.md"
+  }
+}
