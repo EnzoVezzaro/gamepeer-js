@@ -21,25 +21,18 @@ jobs:
           node-version: '20.x'
           registry-url: 'https://registry.npmjs.org'
 
-      # Extract the version from package.json
-      - name: Extract version from package.json
-        id: extract_version
+      # Automatically bump the version
+      - name: Bump version
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-
-      # Update package.json with the extracted version
-      - name: Update package.json with version
-        run: |
-          echo "Updating package.json version to $VERSION"
-          npm version "$VERSION" --no-git-tag-version
+          echo "Bumping version..."
+          npm version patch --no-git-tag-version
 
       - name: Commit and push version update
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git add package.json package-lock.json
-          git commit -m "Update package.json to version $VERSION"
+          git commit -m "Bump version to $(node -p "require('./package.json').version")"
           git push origin main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
