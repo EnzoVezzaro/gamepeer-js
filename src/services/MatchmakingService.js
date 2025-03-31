@@ -7,12 +7,24 @@ class MatchmakingService {
       heartbeatInterval: 30000, // 30 seconds
       ...options
     };
+    this.scores = [0];
+    this.players = 1;
+
+    console.log('options match: ', options);
     
+    this.gameName = options.gameName || 'Untitled Game';
+    this.gameMode = options.gameMode || 'standard';
+    this.isPrivate = options.isPrivate || false;
+    this.hasPassword = options.hasPassword || false;
+    this.region = options.region || this._detectRegion()
+    this.maxPlayers = options.maxPlayers;
+
     this.peerManager = new PeerConnectionManager();
     this.availableRooms = new Map(); // Using Map for better performance
     this.ownRoom = null;
     this.heartbeatTimer = null;
     this.clientId = playerId;
+    this.id = null;
     this.registerRoom = this.registerRoom;
     this.updateRoom = this.updateRoom;
     this.connectionManager = connectionManager;
@@ -37,19 +49,9 @@ class MatchmakingService {
   // Initialize with PeerJS connection
   async _init() {
     try {
-      await this.peerManager.createPeer(this.clientId);
-      
-      // Start listening for connections
-      this.peerManager.onConnection((conn) => {
-        // When a new peer connects, send them our room info if we're hosting
-        console.log('[_init] new peer connected: ', conn);
-        if (this.ownRoom) {
-          this.peerManager.send(conn.peer, {
-            type: 'roomUpdate',
-            room: this.ownRoom
-          });
-        }
-      });
+      console.log('[_init] listening peers: ', this.clientId);
+      await this.connectionManager.createPeer(this.clientId);
+      this.addPlayer();
 
       if (this.connectionManager) {
         this.connectionManager.on('data', this._handleIncomingData);
@@ -69,28 +71,34 @@ class MatchmakingService {
   } 
   
   // Register a new game room
-  async registerRoom(roomId, metadata = {}) {
+  async registerRoom(roomId) {
     if (!this.clientId) {
       throw new Error('Matchmaking service not initialized');
     }
+    
+    // Initialize scores array with host player
+    this.scores = [0];
+    this.players = 1;
     
     const roomData = {
       id: roomId,
       host: this.clientId,
       createdAt: new Date().toISOString(),
-      players: 1,
-      maxPlayers: metadata.maxPlayers || 8,
-      gameName: metadata.gameName || 'Untitled Game',
-      gameMode: metadata.gameMode || 'standard',
-      isPrivate: metadata.isPrivate || false,
-      hasPassword: !!metadata.password,
-      region: metadata.region || this._detectRegion(),
-      ...metadata
+      players: this.players,
+      maxPlayers: this.maxPlayers,
+      gameName: this.gameName,
+      gameMode: this.gameMode,
+      isPrivate: this.isPrivate,
+      hasPassword: this.hasPassword,
+      region: this.region,
+      scores: this.scores
     };
+
+    console.log('initializing match: ', roomData);
     
     // Store password locally if provided
-    if (metadata.password) {
-      roomData.password = metadata.password;
+    if (this.password) {
+      roomData.password = this.password;
     }
     
     this.ownRoom = roomData;
@@ -327,6 +335,53 @@ class MatchmakingService {
     }
   }
   
+  // Add a new player and initialize their score
+  addPlayer() {
+    this.players++;
+    this.scores.push(0); // Initialize new player's score to 0
+    console.log('[addPlayer] players:', this.players, 'scores:', this.scores);
+    // Update room with new player count and scores
+    this.updateRoom({ 
+      players: this.players,
+      scores: this.scores
+    });
+    return this.players - 1; // Return player index
+  }
+
+  // Update a player's score and broadcast the update
+  updateScore(playerIndex, increment = 1) {
+    console.log('[updateScore] start:', playerIndex, increment, 'current scores:', this.scores);
+    
+    // Ensure scores array is properly initialized
+    if (!this.scores || this.scores.length < this.players) {
+      this.scores = Array(this.players).fill(0);
+    }
+
+    if (playerIndex >= 0 && playerIndex < this.scores.length) {
+      // Atomic score update with synchronization
+      const newScores = [...this.scores];
+      newScores[playerIndex] += increment;
+      
+      // Update with timestamp to detect stale updates
+      this.scores = newScores;
+      this.updateRoom({ 
+        scores: this.scores,
+        lastUpdate: Date.now() 
+      });
+      
+      console.log('[updateScore] success:', this.scores);
+      return true;
+    }
+    
+    console.error('[updateScore] invalid playerIndex:', playerIndex);
+    return false;
+  }
+
+  // Get current scores
+  getScores() {
+    return this.scores;
+  }
+
   _detectRegion() {
     // Simplified region detection based on timezone
     const timezoneOffset = new Date().getTimezoneOffset();

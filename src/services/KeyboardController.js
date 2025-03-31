@@ -10,8 +10,6 @@ export default class KeyboardController {
     this.connectionManager = connectionManager;
     this.playerId = playerId;
 
-    console.log('getting this: ', this);
-
     this.standardKeys = {
       'ArrowUp': 'up', 'ArrowDown': 'down', 'ArrowLeft': 'left',
       'ArrowRight': 'right', ' ': 'space', 'Enter': 'enter'

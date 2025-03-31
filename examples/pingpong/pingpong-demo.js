@@ -23,12 +23,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let ballY = canvas.height / 2;
     let ballSpeedX = 5;
     let ballSpeedY = 5;
-    let scores = [0, 0];
     let gameStarted = false;
     let isHost = false;
     let keyboard = null;
     let game = null;
     let matchmaking = null;
+    let roomId = null;
 
     // Initialize game with matchmaking
     function initGame() {
@@ -36,6 +36,10 @@ document.addEventListener('DOMContentLoaded', () => {
         game = new GamePeerJS({
             debug: true,
             useMatchmaking: true,
+            matchmakingOptions: {
+                maxPlayers: 8,
+                gameName: 'Untitled Game'
+            },
             useKeyboardController: true,
             localPlayerId: playerId
         });
@@ -48,8 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ballSpeedY = data.ball.speedY;
             }
             if (data.scores) {
-                scores = data.scores;
-                // updateScoreDisplay();
+                updateScoreDisplay();
             }
             if (data.paddles) {
                 if (isHost) {
@@ -116,15 +119,14 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             // Initialize matchmaking service
             matchmaking = game.getMatchmakingService();
-            this.matchmaking = matchmaking;
             matchmaking.on('roomsUpdated', (data) => {
                 console.log('[roomsUpdated] updating matchmaking: ', data);
-                this.scores = data.rooms[0].scores;
+                updateScoreDisplay();
             })
             // Register room with initial scores
-            matchmaking.registerRoom(this.roomId, {
-                scores: [0, 0]
-            });
+            console.log('registering match with room: ', roomId);
+            
+            matchmaking.registerRoom(roomId);
         } catch (err) {
             console.error('Keyboard init error:', err);
         }
@@ -134,8 +136,8 @@ document.addEventListener('DOMContentLoaded', () => {
     hostBtn.onclick = async () => {
         isHost = true;
         initGame();
-        const roomIdPlayer = await game.hostGame();
-        this.roomId = roomIdPlayer;
+        roomId = await game.hostGame();
+        console.log('saving roomId: ', roomId);
         roomInput.value = roomId;
         roomInput.disabled = true;
         
@@ -213,22 +215,20 @@ function gameLoop() {
         // Ball crosses left boundary (completely missed the paddle)
         if (ballX < 0) {
             // Ball crossed left boundary (score for right player)
-            scores[1]++;
+            matchmaking.updateScore(1, 1);
             resetBall();
             console.log('Score for Player 2');
-            // updateScoreDisplay();
-            this.matchmaking.updateRoom({ scores });
+            updateScoreDisplay();
             return;
         }
         
         // Ball crosses right boundary (completely missed the paddle)
         if (ballX > canvas.width) {
             // Ball crossed right boundary (score for left player)
-            scores[0]++;
+            matchmaking.updateScore(0, 1);
             resetBall();
             console.log('Score for Player 1');
-            // updateScoreDisplay();
-            matchmaking.updateRoom({ scores });
+            updateScoreDisplay();
             return;
         }
     }
@@ -258,6 +258,8 @@ function gameLoop() {
     }
 
     function updateScoreDisplay() {
+        const scores = matchmaking.getScores();
+        console.log('getting score from service: ', scores);
         player1Score.textContent = scores[0];
         player2Score.textContent = scores[1];
     }
