@@ -297,17 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Handle new players joining
   game.on('playerJoined', (playerId) => {
+    console.log('new player joined: ', playerId);
     if (playerId === game.localPlayerId) return;
-    
-    // Initialize new player's snake
-    const startX = Math.floor(GRID_SIZE * 3 / 4);
-    const startY = Math.floor(GRID_SIZE / 2);
-    snakes[playerId] = [
-      {x: startX, y: startY},
-      {x: startX-1, y: startY},
-      {x: startX-2, y: startY}
-    ];
-    directions[playerId] = 'left';
-    nextDirections[playerId] = 'left';
   });
 });

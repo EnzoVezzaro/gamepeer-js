@@ -245,6 +245,13 @@ class GamePeerJS {
   _handleNewConnection(peerId) {
     this._setupDataHandling();
     this._triggerEvent('connection', { peerId });
+    
+    console.log('[_handleNewConnection] broadcasting new connection: ', peerId);
+    // Broadcast player joined event to all peers
+    this.broadcastEvent('playerJoined', {
+      playerId: `player_${peerId.peer}`,
+      timestamp: Date.now()
+    });
   }
 
   on(eventName, handler) {
