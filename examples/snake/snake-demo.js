@@ -22,20 +22,42 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('game engine init: ', game);
 
   // Game state
-  let snake = [];
+  let snakes = {}; // Track snakes by playerId
   let food = {};
-  let direction = 'right';
-  let nextDirection = 'right';
+  let directions = {}; // Track directions by playerId
+  let nextDirections = {}; // Track next directions by playerId
   let score = 0;
   let gameSpeed = INITIAL_SPEED;
   let gameLoopInterval;
   let isGameOver = false;
   let keyboard = null;
+  let localSnakeId = null;
 
   // Host or join game
   document.getElementById('hostBtn').onclick = async () => {
     const roomId = await game.hostGame();
     console.log('roomId: ', roomId, game);
+    
+    // Update room input UI
+    const roomInput = document.getElementById('roomInput');
+    roomInput.value = roomId;
+    roomInput.disabled = true;
+    
+    // Add copy button if not already exists
+    if (!document.getElementById('copyRoomBtn')) {
+      const copyBtn = document.createElement('button');
+      copyBtn.id = 'copyRoomBtn';
+      copyBtn.textContent = 'Copy';
+      copyBtn.style.marginLeft = '5px';
+      copyBtn.style.padding = '2px 5px';
+      copyBtn.onclick = () => {
+        navigator.clipboard.writeText(roomId);
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => copyBtn.textContent = 'Copy', 2000);
+      };
+      roomInput.parentNode.insertBefore(copyBtn, roomInput.nextSibling);
+    }
+    
     // Get the pre-initialized keyboard controller
     setTimeout(() => {
       initKeyboardService();
@@ -56,14 +78,17 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('Initializing game...');
     const startX = Math.floor(GRID_SIZE / 4);
     const startY = Math.floor(GRID_SIZE / 2);
-    snake = [
+    
+    // Initialize local player's snake
+    localSnakeId = game.localPlayerId;
+    snakes[localSnakeId] = [
       {x: startX, y: startY},
       {x: startX-1, y: startY},
       {x: startX-2, y: startY}
     ];
     
-    direction = 'right';
-    nextDirection = 'right';
+    directions[localSnakeId] = 'right';
+    nextDirections[localSnakeId] = 'right';
     score = 0;
     gameSpeed = INITIAL_SPEED;
     isGameOver = false;
@@ -82,26 +107,13 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('Keyboard controller instance:', keyboard);
     // Set up keyboard controls
     keyboard.on('up', (data) => { 
-      console.log('receiving data: ', data);
-      if (!data || data.playerId !== game.localPlayerId) {
-        if (direction !== 'down') nextDirection = 'up';
-        updatePosition(data, nextDirection);
-      }
+      updatePosition(data, 'up');
     }).on('down', (data) => { 
-      if (!data || data.playerId !== game.localPlayerId) {
-        if (direction !== 'up') nextDirection = 'down';
-        updatePosition(data, nextDirection);
-      }
+      updatePosition(data, 'down');
     }).on('left', (data) => { 
-      if (!data || data.playerId !== game.localPlayerId) {
-        if (direction !== 'right') nextDirection = 'left';
-        updatePosition(data, nextDirection);
-      }
+      updatePosition(data, 'left');
     }).on('right', (data) => { 
-      if (!data || data.playerId !== game.localPlayerId) {
-        if (direction !== 'left') nextDirection = 'right';
-        updatePosition(data, nextDirection);
-      }
+      updatePosition(data, 'right');
     });
   }
 
@@ -109,7 +121,11 @@ document.addEventListener('DOMContentLoaded', () => {
   function gameLoop() {
     if (isGameOver) return;
     
-    direction = nextDirection;
+    // Update directions from nextDirections
+    for (const playerId in nextDirections) {
+      directions[playerId] = nextDirections[playerId];
+    }
+    
     moveSnake();
     
     if (checkCollision()) {
@@ -117,51 +133,66 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     
-    if (snake[0].x === food.x && snake[0].y === food.y) {
-      eatFood();
-    }
-    
+    eatFood();
     draw();
   }
 
   function moveSnake() {
-    const head = {...snake[0]};
-    
-    switch(direction) {
-      case 'up': head.y--; break;
-      case 'down': head.y++; break;
-      case 'left': head.x--; break;
-      case 'right': head.x++; break;
+    // Move all snakes
+    for (const playerId in snakes) {
+      const snake = snakes[playerId];
+      const direction = directions[playerId];
+      
+      const head = {...snake[0]};
+      
+      switch(direction) {
+        case 'up': head.y--; break;
+        case 'down': head.y++; break;
+        case 'left': head.x--; break;
+        case 'right': head.x++; break;
+      }
+      
+      if (head.x >= GRID_SIZE) head.x = 0;
+      if (head.x < 0) head.x = GRID_SIZE - 1;
+      if (head.y >= GRID_SIZE) head.y = 0;
+      if (head.y < 0) head.y = GRID_SIZE - 1;
+      
+      snake.unshift(head); 
+      snake.pop();
     }
-    
-    if (head.x >= GRID_SIZE) head.x = 0;
-    if (head.x < 0) head.x = GRID_SIZE - 1;
-    if (head.y >= GRID_SIZE) head.y = 0;
-    if (head.y < 0) head.y = GRID_SIZE - 1;
-    
-    snake.unshift(head); 
-    snake.pop();
   }
 
   function checkCollision() {
-    const head = snake[0];
-    for (let i = 1; i < snake.length; i++) {
-      if (head.x === snake[i].x && head.y === snake[i].y) {
-        return true;
+    // Only check for self-collisions (head hitting own body)
+    for (const playerId in snakes) {
+      const snake = snakes[playerId];
+      const head = snake[0];
+      
+      for (let i = 1; i < snake.length; i++) {
+        if (head.x === snake[i].x && head.y === snake[i].y) {
+          return true;
+        }
       }
     }
     return false;
   }
 
   function eatFood() {
-    const tail = {...snake[snake.length-1]};
-    snake.push(tail);
-    score += 10;
-    updateScore();
-    gameSpeed = Math.max(INITIAL_SPEED - (score / 2), 50);
-    clearInterval(gameLoopInterval);
-    gameLoopInterval = setInterval(gameLoop, gameSpeed);
-    generateFood();
+    // Check if any snake ate the food
+    for (const playerId in snakes) {
+      const snake = snakes[playerId];
+      if (snake[0].x === food.x && snake[0].y === food.y) {
+        const tail = {...snake[snake.length-1]};
+        snake.push(tail);
+        score += 10;
+        updateScore();
+        gameSpeed = Math.max(INITIAL_SPEED - (score / 2), 50);
+        clearInterval(gameLoopInterval);
+        gameLoopInterval = setInterval(gameLoop, gameSpeed);
+        generateFood();
+        break;
+      }
+    }
   }
 
   function generateFood() {
@@ -169,9 +200,13 @@ document.addEventListener('DOMContentLoaded', () => {
       x: Math.floor(Math.random() * GRID_SIZE),
       y: Math.floor(Math.random() * GRID_SIZE)
     };
-    for (const segment of snake) {
-      if (segment.x === food.x && segment.y === food.y) {
-        return generateFood();
+    
+    // Check all snake segments
+    for (const playerId in snakes) {
+      for (const segment of snakes[playerId]) {
+        if (segment.x === food.x && segment.y === food.y) {
+          return generateFood();
+        }
       }
     }
   }
@@ -188,32 +223,62 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function updatePosition(data, nextDirection) {
-    // scoreDisplay.textContent = `Change Direction Update: ${data}`;
-    // game.broadcastEvent(nextDirection, { ...data, playerId: game.localPlayerId });
+    // Initialize snake if it doesn't exist
+    if (!snakes[data.playerId]) {
+      console.log('[updatePosition] initializing snake for', data.playerId);
+      const startX = Math.floor(GRID_SIZE * 3 / 4);
+      const startY = Math.floor(GRID_SIZE / 2);
+      snakes[data.playerId] = [
+        {x: startX, y: startY},
+        {x: startX-1, y: startY},
+        {x: startX-2, y: startY}
+      ];
+      directions[data.playerId] = 'left';
+      nextDirections[data.playerId] = 'left';
+    }
+
+    const currentDir = directions[data.playerId] || 'left';
+    // Prevent 180-degree turns
+    if ((currentDir === 'up' && nextDirection !== 'down') ||
+        (currentDir === 'down' && nextDirection !== 'up') ||
+        (currentDir === 'left' && nextDirection !== 'right') ||
+        (currentDir === 'right' && nextDirection !== 'left')) {
+      nextDirections[data.playerId] = nextDirection;
+      console.log('[updatePosition] updated direction for', data.playerId, 'to', nextDirection);
+    }
   }
 
   function draw() {
     ctx.fillStyle = '#f0f0f0';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    ctx.fillStyle = '#333';
-    for (const segment of snake) {
+    // Draw all snakes
+    for (const playerId in snakes) {
+      const snake = snakes[playerId];
+      const isLocal = playerId === localSnakeId;
+      
+      // Draw snake body
+      ctx.fillStyle = isLocal ? '#0066cc' : '#333';
+      for (const segment of snake) {
+        ctx.fillRect(
+          segment.x * CELL_SIZE, 
+          segment.y * CELL_SIZE, 
+          CELL_SIZE, 
+          CELL_SIZE
+        );
+      }
+      
+      // Draw snake head
+      ctx.fillStyle = isLocal ? '#00cc66' : '#0066cc';
       ctx.fillRect(
-        segment.x * CELL_SIZE, 
-        segment.y * CELL_SIZE, 
+        snake[0].x * CELL_SIZE, 
+        snake[0].y * CELL_SIZE, 
         CELL_SIZE, 
         CELL_SIZE
       );
     }
     
-    ctx.fillStyle = '#0066cc';
-    ctx.fillRect(
-      snake[0].x * CELL_SIZE, 
-      snake[0].y * CELL_SIZE, 
-      CELL_SIZE, 
-      CELL_SIZE
-    );
-    
+    // Draw food
     ctx.fillStyle = '#cc3300';
     ctx.fillRect(
       food.x * CELL_SIZE, 
@@ -228,5 +293,21 @@ document.addEventListener('DOMContentLoaded', () => {
       score = data.score;
       updateScore();
     }
+  });
+
+  // Handle new players joining
+  game.on('playerJoined', (playerId) => {
+    if (playerId === game.localPlayerId) return;
+    
+    // Initialize new player's snake
+    const startX = Math.floor(GRID_SIZE * 3 / 4);
+    const startY = Math.floor(GRID_SIZE / 2);
+    snakes[playerId] = [
+      {x: startX, y: startY},
+      {x: startX-1, y: startY},
+      {x: startX-2, y: startY}
+    ];
+    directions[playerId] = 'left';
+    nextDirections[playerId] = 'left';
   });
 });
