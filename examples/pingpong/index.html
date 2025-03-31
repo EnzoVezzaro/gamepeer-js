@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+  <script src="../../dist/gamepeer-js.js"></script>
+  <script src="pingpong-demo.js"></script>
+<head>
+    <title>Ping Pong Game</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+        }
+        canvas {
+            background: #000;
+            display: block;
+            margin: 0 auto;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 0 10px;
+            font-size: 16px;
+        }
+        .room-info {
+            margin: 20px 0;
+        }
+        #roomInput {
+            padding: 8px;
+            font-size: 16px;
+        }
+        #copyRoomBtn {
+            padding: 8px 12px;
+            margin-left: 5px;
+        }
+        .score {
+            font-size: 24px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Ping Pong Game</h1>
+    
+    <div class="controls">
+        <button id="hostBtn">Host Game</button>
+        <button id="joinBtn">Join Game</button>
+    </div>
+
+    <div class="room-info">
+        <input type="text" id="roomInput" placeholder="Enter Room ID">
+    </div>
+
+    <div class="score">
+        <span id="player1Score">0</span> - <span id="player2Score">0</span>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+</body>
+</html>

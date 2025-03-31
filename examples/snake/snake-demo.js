@@ -59,9 +59,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Get the pre-initialized keyboard controller
-    setTimeout(() => {
-      initKeyboardService();
-    }, 2000);
     initGame();
   };
 
@@ -69,12 +66,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const roomId = document.getElementById('roomInput').value;
     console.log('joining room: ', roomId);
     await game.joinGame(roomId);
-    initKeyboardService();
     initGame();
   };
 
   // Initialize game state
   function initGame() {
+    console.log('Initializing keyboard...');
+    initKeyboardService();
     console.log('Initializing game...');
     const startX = Math.floor(GRID_SIZE / 4);
     const startY = Math.floor(GRID_SIZE / 2);
